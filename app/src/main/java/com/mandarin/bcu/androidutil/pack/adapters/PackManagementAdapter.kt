@@ -29,6 +29,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         // [Editor] Menu ID for "Add enemy"
         const val MENU_ADD_ENEMY = 1001
         const val MENU_EDIT_ENEMIES = 1002
+        const val MENU_EXPORT = 1003
     }
 
     class ViewHolder(v: View) {
@@ -96,6 +97,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         if (isWorkspace) {
             menu.add(0, MENU_ADD_ENEMY, 2, R.string.editor_add_enemy)
             menu.add(0, MENU_EDIT_ENEMIES, 3, R.string.editor_edit_enemies)
+            menu.add(0, MENU_EXPORT, 4, R.string.editor_export)
         }
 
         popup.setOnMenuItemClickListener {
@@ -105,6 +107,9 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
                 }
                 MENU_EDIT_ENEMIES -> {
                     EditorActions.showEditEnemiesDialog(ac, p)
+                }
+                MENU_EXPORT -> {
+                    EditorActions.exportPack(ac, p)
                 }
                 R.id.packremove -> {
                     dialog.setTitle(R.string.pack_manage_remove_sure)
