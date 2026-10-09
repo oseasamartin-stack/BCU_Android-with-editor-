@@ -59,6 +59,22 @@ class PackManagement : AppCompatActivity() {
         var needReload = false
     }
 
+    // [Editor] File picker used by the pack editor (music / images)
+    private var editorPickCallback: ((android.net.Uri) -> kotlin.Unit)? = null
+
+    private val editorPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val cb = editorPickCallback
+        editorPickCallback = null
+
+        if (uri != null)
+            cb?.invoke(uri)
+    }
+
+    fun pickEditorFile(mime: String, onPicked: (android.net.Uri) -> kotlin.Unit) {
+        editorPickCallback = onPicked
+        editorPicker.launch(mime)
+    }
+
     val resultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if(result.resultCode == RESULT_OK) {
             val path = result.data?.data ?: return@registerForActivityResult
