@@ -2,6 +2,7 @@ package com.mandarin.bcu.androidutil.pack
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -9,6 +10,7 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ListView
+import com.mandarin.bcu.EnemyEditor
 import com.mandarin.bcu.PackManagement
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
@@ -91,6 +93,33 @@ object EditorActions {
 
             addEnemyCopy(ac, pack, src)
         }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    /** List the pack's enemies and open the stat editor for the one tapped. */
+    fun showEditEnemiesDialog(ac: Activity, pack: PackData.UserPack) {
+        val enemies = pack.enemies.list.filterNotNull()
+
+        if (enemies.isEmpty()) {
+            StaticStore.showShortMessage(ac, R.string.editor_no_enemies)
+            return
+        }
+
+        val labels = enemies.map<Enemy, CharSequence> { "${Data.trio(it.id.id)} - ${it.names}" }.toTypedArray()
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_edit_enemies)
+            .setItems(labels) { _, which ->
+                val intent = Intent(ac, EnemyEditor::class.java)
+                intent.putExtra(EnemyEditor.EXTRA_PACK, pack.sid)
+                intent.putExtra(EnemyEditor.EXTRA_INDEX, enemies[which].id.id)
+                ac.startActivity(intent)
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
 
         if (!ac.isDestroyed && !ac.isFinishing) {
             dialog.show()
