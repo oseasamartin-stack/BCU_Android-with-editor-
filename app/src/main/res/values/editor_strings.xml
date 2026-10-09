@@ -331,4 +331,18 @@
         <item>Mini-surge</item>
         <item>Sage slayer</item>
     </string-array>
+    <string name="editor_pack_settings">⚙ Pack settings</string>
+    <string name="editor_pack_id">Pack ID: _</string>
+    <string name="editor_pack_desc">Description</string>
+    <string name="editor_pack_version">Pack version</string>
+    <string name="editor_pack_allowanim">Allow others to copy this pack\'s animations</string>
+    <string name="editor_pack_parents">Parent packs</string>
+    <string name="editor_pack_parents_note">Parent packs let you use their enemies, backgrounds, castles and music in your stages. Players will need the parent packs installed too. Reload packs after changing this.</string>
+    <string name="editor_no_parents">No other packs are installed</string>
+    <string name="editor_parent_pw">Password for _</string>
+    <string name="editor_parent_pw_wrong">Wrong password, parent pack not added</string>
+    <string name="editor_export_protect">Require a password to use this pack as a parent</string>
+    <string name="editor_export_pw_hint">Parent password</string>
+    <string name="editor_export_pw_empty">Enter a password, or untick the box</string>
+    <string name="editor_export_go">Export</string>
 </resources>
