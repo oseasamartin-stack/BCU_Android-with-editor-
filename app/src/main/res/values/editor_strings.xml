@@ -68,4 +68,9 @@
     <string name="editor_surge_min">Surge range start</string>
     <string name="editor_surge_max">Surge range end</string>
     <string name="editor_barrier_hp">Barrier HP</string>
+    <string name="editor_export">Export as .bcuzip</string>
+    <string name="editor_exporting">Exporting pack…</string>
+    <string name="editor_export_fail">Failed to export pack</string>
+    <string name="editor_export_share">Share or save pack</string>
+    <string name="editor_export_saved">Exported to _</string>
 </resources>
