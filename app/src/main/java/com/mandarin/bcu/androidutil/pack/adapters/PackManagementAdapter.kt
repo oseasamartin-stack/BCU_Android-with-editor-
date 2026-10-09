@@ -62,17 +62,23 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
 
         holder.name.text = StaticStore.getPackName(p.sid)
 
-        val f = (p.source as Source.ZipSource).packFile
+        // [Editor] Workspace (editable) packs have no .bcuzip file
+        val f: File? = (p.source as? Source.ZipSource)?.packFile
+        val isWorkspace = p.source is Source.Workspace
 
-        if(!f.exists()) {
-            Log.w("PackManagementAdapter", "File ${f.absolutePath} not existing")
+        if (f != null) {
+            if(!f.exists()) {
+                Log.w("PackManagementAdapter", "File ${f.absolutePath} not existing")
 
-            return row
+                return row
+            }
+
+            holder.desc.text = "${f.name} (${byteToMB(f.length())}MB)"
+        } else if (isWorkspace) {
+            holder.desc.text = context.getString(R.string.editor_pack_workspace)
+        } else {
+            holder.desc.text = ""
         }
-
-        val desc = "${f.name} (${byteToMB(f.length())}MB)"
-
-        holder.desc.text = desc
 
         val popup = PopupMenu(context, holder.more)
         val menu = popup.menu
@@ -86,7 +92,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
                     dialog.setMessage(R.string.pack_manage_remove_msg)
 
                     dialog.setPositiveButton(R.string.remove) { _, _ ->
-                        deletePack(p, f)
+                        deletePack(p, f, isWorkspace)
 
                         rebuildPackList()
 
@@ -108,7 +114,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
                     }
                 }
                 R.id.packshare -> {
-                    if(!f.exists()) {
+                    if(f == null || !f.exists()) {
                         StaticStore.showShortMessage(context, R.string.pack_share_notfound)
 
                         return@setOnMenuItemClickListener  false
@@ -133,6 +139,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
             false
         }
 
+        menu.getItem(0).isEnabled = f != null
         menu.getItem(1).isEnabled = !cantDelete(p)
 
         holder.more.setOnClickListener(object : SingleClick() {
@@ -154,8 +161,8 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         return df.format(bytes.toDouble()/1000000.0)
     }
 
-    private fun deletePack(p: PackData.UserPack, pack: File) {
-        if(pack.exists())
+    private fun deletePack(p: PackData.UserPack, pack: File?, isWorkspace: Boolean) {
+        if(pack != null && pack.exists())
             pack.delete()
 
         val shared = context.getSharedPreferences(StaticStore.PACK, Context.MODE_PRIVATE)
@@ -184,6 +191,10 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         editor.apply()
 
         UserProfile.unloadPack(p)
+
+        // [Editor] Workspace packs are folders; remove the folder too
+        if (isWorkspace)
+            p.source.delete()
     }
 
     private fun cantDelete(p: PackData.UserPack) : Boolean {
