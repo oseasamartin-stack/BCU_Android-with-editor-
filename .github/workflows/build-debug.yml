@@ -92,6 +92,10 @@ jobs:
         run: |
           sed -i 's/^\( *\)debug {$/\1debug {\n\1    applicationIdSuffix ".editor"\n\1    signingConfig signingConfigs.release/' app/build.gradle
           sed -i 's/"com\.mandarin\.bcu\.provider"/"${applicationId}.provider"/' app/src/main/AndroidManifest.xml
+          # Private-folder paths are hard-coded with the official package name; use this build's instead
+          grep -rl '"/data/com.mandarin.bcu/' app/src/main/java/com | while read -r f; do
+            sed -i 's#"/data/com\.mandarin\.bcu/#"/data/" + com.mandarin.bcu.BuildConfig.APPLICATION_ID + "/#g' "$f"
+          done
           grep -rl '"com.mandarin.bcu.provider"' app/src/main/java/com | while read -r f; do
             sed -i 's/"com\.mandarin\.bcu\.provider"/com.mandarin.bcu.BuildConfig.APPLICATION_ID + ".provider"/g' "$f"
           done
