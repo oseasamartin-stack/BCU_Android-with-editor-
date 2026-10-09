@@ -64,7 +64,8 @@ jobs:
             "configuration_version": "1"
           }
           EOF
-
+      - name: Create placeholder service_key.json
+        run: echo '{}' > app/src/main/res/raw/service_key.json
       # Upstream signs every build with a keystore at a path on the dev's Mac.
       # Use app/ci-keystore.jks instead: reuse it if you've committed it,
       # otherwise generate one (and upload it below so you can commit it).
