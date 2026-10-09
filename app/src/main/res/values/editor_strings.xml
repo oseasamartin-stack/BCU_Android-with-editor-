@@ -131,4 +131,14 @@
     <string name="editor_lim_max">Max deploy cost (0 = no limit)</string>
     <string name="editor_lim_line">Only the first lineup row can be used</string>
     <string name="editor_lim_no_rarity">Allow at least one rarity</string>
+    <string name="editor_ld_note">Area start/end: leave both at 0 for a normal attack. Set them for long distance (e.g. 300 to 700). A negative start makes it omni strike (hits behind too).</string>
+    <string name="editor_ld0">Area start</string>
+    <string name="editor_ld1">Area end</string>
+    <string name="editor_add_attack">＋ Add attack</string>
+    <string name="editor_remove_attack">Remove this attack</string>
+    <string name="editor_need_attack">An enemy needs at least one attack</string>
+    <string name="editor_delete_enemy">🗑 Delete this enemy</string>
+    <string name="editor_delete_enemy_title">Delete enemy?</string>
+    <string name="editor_delete_enemy_msg">This enemy and its animation will be removed from the pack. This can\'t be undone.</string>
+    <string name="editor_delete_enemy_used">This enemy is used in _ of your stages. Deleting it also removes it from those stages. This can\'t be undone.</string>
 </resources>
