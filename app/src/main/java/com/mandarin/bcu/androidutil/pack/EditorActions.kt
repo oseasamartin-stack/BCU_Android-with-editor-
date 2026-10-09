@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.Spinner
+import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import android.text.Editable
@@ -27,6 +28,7 @@ import common.battle.data.CustomEnemy
 import common.battle.data.CustomUnit
 import common.battle.data.PCoin
 import common.CommonStatic
+import common.io.PackLoader
 import common.pack.Identifier
 import common.pack.PackData
 import common.pack.Source
@@ -64,8 +66,12 @@ object EditorActions {
     fun pickEnemy(ac: Activity, pack: PackData.UserPack?, title: Int = R.string.editor_pick_enemy, onPick: (Enemy) -> Unit) {
         val all = ArrayList<Enemy>()
 
-        if (pack != null)
+        if (pack != null) {
             all.addAll(pack.enemies.list.filterNotNull())
+
+            for (dep in parentPacks(pack))
+                all.addAll(dep.enemies.list.filterNotNull())
+        }
 
         all.addAll(UserProfile.getBCData().enemies.list.filterNotNull())
 
@@ -161,6 +167,51 @@ object EditorActions {
 
     /** Export a workspace pack to a .pack.bcuzip file, then open the share sheet. */
     fun exportPack(ac: Activity, pack: PackData.UserPack) {
+        val pad = (16 * ac.resources.displayMetrics.density).toInt()
+
+        val layout = LinearLayout(ac)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+
+        val protect = CheckBox(ac)
+        protect.text = ac.getString(R.string.editor_export_protect)
+        layout.addView(protect)
+
+        val pw = EditText(ac)
+        pw.hint = ac.getString(R.string.editor_export_pw_hint)
+        pw.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        pw.visibility = View.GONE
+        layout.addView(pw)
+
+        protect.setOnCheckedChangeListener { _, checked -> pw.visibility = if (checked) View.VISIBLE else View.GONE }
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_export)
+            .setView(layout)
+            .setPositiveButton(R.string.editor_export_go, null)
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val parentPw = if (protect.isChecked) pw.text.toString() else null
+
+                if (parentPw != null && parentPw.isEmpty()) {
+                    pw.error = ac.getString(R.string.editor_export_pw_empty)
+                    return@setOnClickListener
+                }
+
+                dialog.dismiss()
+                doExport(ac, pack, parentPw)
+            }
+        }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun doExport(ac: Activity, pack: PackData.UserPack, parentPassword: String?) {
         val source = pack.source as? Source.Workspace ?: return
 
         val progress = AlertDialog.Builder(ac)
@@ -175,7 +226,7 @@ object EditorActions {
         CoroutineScope(Dispatchers.IO).launch {
             val file = try {
                 // Same export the PC version uses; writes <app files>/exports/<id>.pack.bcuzip
-                source.export(pack, "", null) { _ -> }
+                source.export(pack, "", parentPassword) { _ -> }
 
                 val f = CommonStatic.ctx.getAuxFile("./exports/" + pack.sid + ".pack.bcuzip")
 
@@ -532,6 +583,7 @@ object EditorActions {
         items.add(null)
         items.addAll(UserProfile.getBCData().bgs.list.filterNotNull())
         items.addAll(pack.bgs.list.filterNotNull())
+        parentPacks(pack).forEach { items.addAll(it.bgs.list.filterNotNull()) }
 
         val labels = items.map { bgLabel(ac, it?.id) }
 
@@ -543,6 +595,7 @@ object EditorActions {
         items.add(null)
         items.addAll(UserProfile.getBCData().musics.list.filterNotNull())
         items.addAll(pack.musics.list.filterNotNull())
+        parentPacks(pack).forEach { items.addAll(it.musics.list.filterNotNull()) }
 
         val labels = items.map { musicLabel(ac, it?.id) }
 
@@ -920,6 +973,220 @@ object EditorActions {
 
         if (save(ac))
             StaticStore.showShortMessage(ac, R.string.editor_deleted)
+    }
+
+    // ---------- Pack settings ----------
+
+    /** Loaded packs this pack depends on (its "parent" packs). */
+    private fun parentPacks(pack: PackData.UserPack): List<PackData.UserPack> {
+        val deps = pack.desc.dependency ?: return emptyList()
+        return deps.mapNotNull { UserProfile.getUserPack(it) }
+    }
+
+    fun showPackSettings(ac: Activity, pack: PackData.UserPack) {
+        val density = ac.resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val scroll = android.widget.ScrollView(ac)
+
+        val layout = LinearLayout(ac)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+        scroll.addView(layout)
+
+        fun label(res: Int) {
+            val t = TextView(ac)
+            t.text = ac.getString(res)
+            t.setPadding(0, pad / 2, 0, 0)
+            layout.addView(t)
+        }
+
+        val idText = TextView(ac)
+        idText.text = ac.getString(R.string.editor_pack_id).replace("_", pack.sid)
+        idText.alpha = 0.7f
+        layout.addView(idText)
+
+        label(R.string.editor_pack_name)
+        val name = EditText(ac)
+        name.setSingleLine()
+        name.setText(pack.desc.names.toString())
+        layout.addView(name)
+
+        label(R.string.editor_pack_author)
+        val author = EditText(ac)
+        author.setSingleLine()
+        author.setText(pack.desc.author ?: "")
+        layout.addView(author)
+
+        label(R.string.editor_pack_desc)
+        val desc = EditText(ac)
+        desc.minLines = 3
+        desc.gravity = android.view.Gravity.TOP or android.view.Gravity.START
+        desc.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        desc.setText(pack.desc.desc ?: "")
+        layout.addView(desc)
+
+        label(R.string.editor_pack_version)
+        val version = EditText(ac)
+        version.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        version.setText(pack.desc.version.toString())
+        layout.addView(version)
+
+        val allowAnim = CheckBox(ac)
+        allowAnim.text = ac.getString(R.string.editor_pack_allowanim)
+        allowAnim.isChecked = pack.desc.allowAnim
+        layout.addView(allowAnim)
+
+        // Parent packs, edited in their own dialog; kept here until Save
+        val deps = ArrayList(pack.desc.dependency ?: ArrayList())
+
+        label(R.string.editor_pack_parents)
+
+        val parentsButton = android.widget.Button(ac)
+        parentsButton.isAllCaps = false
+
+        fun refreshParents() {
+            parentsButton.text = if (deps.isEmpty())
+                ac.getString(R.string.editor_none)
+            else
+                deps.joinToString(", ") { StaticStore.getPackName(it) }
+        }
+
+        refreshParents()
+
+        parentsButton.setOnClickListener {
+            pickParents(ac, pack, deps) { refreshParents() }
+        }
+
+        layout.addView(parentsButton)
+
+        val note = TextView(ac)
+        note.text = ac.getString(R.string.editor_pack_parents_note)
+        note.alpha = 0.7f
+        layout.addView(note)
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_pack_settings)
+            .setView(scroll)
+            .setPositiveButton(R.string.editor_save, null)
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val v = version.text.toString().trim().toIntOrNull()
+
+                if (v == null || v < 0) {
+                    version.error = ac.getString(R.string.editor_invalid_number).replace("_", "0")
+                    return@setOnClickListener
+                }
+
+                val n = name.text.toString().trim()
+                if (n.isNotEmpty())
+                    pack.desc.names.put(n)
+
+                pack.desc.author = author.text.toString().trim()
+                pack.desc.desc = desc.text.toString()
+                pack.desc.version = v
+                pack.desc.allowAnim = allowAnim.isChecked
+
+                if (pack.desc.dependency == null)
+                    pack.desc.dependency = ArrayList()
+
+                pack.desc.dependency.clear()
+                pack.desc.dependency.addAll(deps)
+
+                if (save(ac))
+                    StaticStore.showShortMessage(ac, R.string.editor_saved)
+
+                dialog.dismiss()
+            }
+        }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    /**
+     * Choose parent packs. A pack protected with a parent password can only be
+     * added if the correct password is entered (the author's choice is respected).
+     */
+    private fun pickParents(ac: Activity, pack: PackData.UserPack, deps: ArrayList<String>, onDone: () -> Unit) {
+        val candidates = UserProfile.getUserPacks().filter {
+            // Not itself, and not a pack that already depends on this one
+            it.sid != pack.sid && !(it.desc.dependency?.contains(pack.sid) ?: false)
+        }
+
+        if (candidates.isEmpty()) {
+            StaticStore.showShortMessage(ac, R.string.editor_no_parents)
+            return
+        }
+
+        val labels = candidates.map<PackData.UserPack, CharSequence> {
+            val lock = if (it.desc.parentPassword != null) " 🔒" else ""
+            StaticStore.getPackName(it.sid) + lock
+        }.toTypedArray()
+
+        val checked = BooleanArray(candidates.size) { deps.contains(candidates[it].sid) }
+
+        AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_pack_parents)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked -> checked[which] = isChecked }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val toUnlock = ArrayList<PackData.UserPack>()
+
+                for (i in candidates.indices) {
+                    val sid = candidates[i].sid
+
+                    if (!checked[i]) {
+                        deps.remove(sid)
+                    } else if (!deps.contains(sid)) {
+                        if (candidates[i].desc.parentPassword != null)
+                            toUnlock.add(candidates[i])
+                        else
+                            deps.add(sid)
+                    }
+                }
+
+                unlockParents(ac, toUnlock, 0, deps, onDone)
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .show()
+    }
+
+    /** Ask for each protected parent's password in turn. */
+    private fun unlockParents(ac: Activity, list: List<PackData.UserPack>, i: Int, deps: ArrayList<String>, onDone: () -> Unit) {
+        if (i >= list.size) {
+            onDone()
+            return
+        }
+
+        val p = list[i]
+        val pad = (16 * ac.resources.displayMetrics.density).toInt()
+
+        val pw = EditText(ac)
+        pw.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+
+        val layout = LinearLayout(ac)
+        layout.setPadding(pad, pad / 2, pad, 0)
+        layout.addView(pw, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        AlertDialog.Builder(ac)
+            .setTitle(ac.getString(R.string.editor_parent_pw).replace("_", StaticStore.getPackName(p.sid)))
+            .setView(layout)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val hash = PackLoader.getMD5(pw.text.toString().toByteArray(Charsets.UTF_8), 16)
+
+                if (hash.contentEquals(p.desc.parentPassword))
+                    deps.add(p.sid)
+                else
+                    StaticStore.showShortMessage(ac, R.string.editor_parent_pw_wrong)
+
+                unlockParents(ac, list, i + 1, deps, onDone)
+            }
+            .setNegativeButton(R.string.main_file_cancel) { _, _ -> unlockParents(ac, list, i + 1, deps, onDone) }
+            .show()
     }
 
     private fun openStage(ac: Activity, pack: PackData.UserPack, sm: StageMap, st: Stage) {
