@@ -2,6 +2,7 @@ package com.mandarin.bcu.androidutil.pack
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -26,6 +27,7 @@ import com.mandarin.bcu.PackManagement
 import com.mandarin.bcu.StageEditor
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
+import com.mandarin.bcu.androidutil.io.AContext
 import common.battle.data.CustomEnemy
 import common.battle.data.CustomUnit
 import common.battle.data.PCoin
@@ -1195,6 +1197,15 @@ object EditorActions {
     // ---------- Resources: music & castles ----------
 
     fun showResources(ac: Activity, pack: PackData.UserPack) {
+        // Repair: make sure every imported song has its playable copy
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                syncMusicCopies(ac, pack)
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Music sync failed", e)
+            }
+        }
+
         val musics = pack.musics.list.filterNotNull()
         val castles = pack.castles.list.filterNotNull()
 
@@ -1291,6 +1302,8 @@ object EditorActions {
             pack.musics.set(idx, Music(Identifier(pack.sid, Music::class.java, idx), 0, FDFile(file)))
 
             Source.Workspace.saveWorkspace()
+
+            syncMusicCopies(ac, pack)
             null
         }
     }
@@ -1318,6 +1331,27 @@ object EditorActions {
         }
     }
 
+    /**
+     * The app doesn't play music straight from a pack. It plays a copy it makes when a pack
+     * is first loaded or its version changes. Adding music to a workspace pack doesn't trigger
+     * that, so make the copies here (only for songs that don't have one yet).
+     */
+    private fun syncMusicCopies(ac: Activity, pack: PackData.UserPack) {
+        val ctx = CommonStatic.ctx as? AContext ?: return
+        val editor = ac.getSharedPreferences(StaticStore.PACK, Context.MODE_PRIVATE).edit()
+
+        for (m in pack.musics.list.filterNotNull()) {
+            val f = ctx.getMusicFile(m)
+
+            if (!f.exists() || f.length() == 0L) {
+                val result = StaticStore.extractMusic(m, f)
+                editor.putString(result.name, StaticStore.fileToMD5(result))
+            }
+        }
+
+        editor.apply()
+    }
+
     /** All stages in the pack, for cleaning up references to deleted resources. */
     private fun allStages(pack: PackData.UserPack): List<Stage> {
         return pack.mc.maps.list.filterNotNull().flatMap { it.list.list.filterNotNull() }
@@ -1331,6 +1365,12 @@ object EditorActions {
         }
 
         pack.musics.remove(m)
+
+        try {
+            (CommonStatic.ctx as? AContext)?.getMusicFile(m)?.delete()
+        } catch (e: Exception) {
+            Log.e("EditorActions", "Failed to delete music copy", e)
+        }
         CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/musics/" + Data.trio(m.id.id) + ".ogg").delete()
 
         if (save(ac))
