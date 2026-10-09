@@ -1212,7 +1212,7 @@ object EditorActions {
         val labels = ArrayList<CharSequence>()
         labels.add(ac.getString(R.string.editor_import_music))
         labels.add(ac.getString(R.string.editor_import_castle))
-        musics.forEach { labels.add(ac.getString(R.string.editor_res_music).replace("_", Data.trio(it.id.id))) }
+        musics.forEach { labels.add(musicStatusLabel(ac, pack, it)) }
         castles.forEach { labels.add(ac.getString(R.string.editor_res_castle).replace("_", Data.trio(it.id.id))) }
 
         val dialog = AlertDialog.Builder(ac)
@@ -1293,6 +1293,10 @@ object EditorActions {
             if (bytes.size < 4 || String(bytes, 0, 4, Charsets.US_ASCII) != "OggS")
                 return@runImport R.string.editor_import_not_ogg
 
+            // .ogg can hold several kinds of audio; BCU can only play Vorbis
+            if (oggCodec(bytes) != "Vorbis")
+                return@runImport R.string.editor_import_not_vorbis
+
             val idx = pack.musics.nextInd()
             val file = CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/musics/" + Data.trio(idx) + ".ogg")
 
@@ -1350,6 +1354,47 @@ object EditorActions {
         }
 
         editor.apply()
+    }
+
+    /** Which audio codec an Ogg file holds, from its first header packet. */
+    private fun oggCodec(bytes: ByteArray): String {
+        val head = String(bytes, 0, minOf(bytes.size, 1024), Charsets.ISO_8859_1)
+
+        return when {
+            head.contains("\u0001vorbis") -> "Vorbis"
+            head.contains("OpusHead") -> "Opus"
+            head.contains("\u007fFLAC") -> "FLAC"
+            head.contains("Speex") -> "Speex"
+            head.contains("theora") -> "Theora (video)"
+            else -> "Unknown"
+        }
+    }
+
+    /** "🎵 Music 000 · Vorbis · ready to play" style label, for spotting problems. */
+    private fun musicStatusLabel(ac: Activity, pack: PackData.UserPack, m: Music): String {
+        val num = Data.trio(m.id.id)
+        val src = CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/musics/" + num + ".ogg")
+
+        val codec = try {
+            if (src.exists()) {
+                val buf = ByteArray(1024)
+                val n = src.inputStream().use { it.read(buf) }
+                oggCodec(buf.copyOf(maxOf(n, 0)))
+            } else "?"
+        } catch (_: Exception) {
+            "?"
+        }
+
+        // Same place the app plays pack music from
+        val copy = java.io.File(StaticStore.dataPath + "music/" + pack.sid + "-" + num + ".ogg")
+
+        val status = when {
+            codec != "Vorbis" -> ac.getString(R.string.editor_music_bad_codec)
+            copy.exists() && copy.length() > 0 -> ac.getString(R.string.editor_music_ok)
+            else -> ac.getString(R.string.editor_music_no_copy)
+        }
+
+        return "🎵 " + ac.getString(R.string.editor_res_music).replace("_", num) + "\n" + codec + " · " + status
     }
 
     /** All stages in the pack, for cleaning up references to deleted resources. */
