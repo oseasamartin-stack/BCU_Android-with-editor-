@@ -345,4 +345,17 @@
     <string name="editor_export_pw_hint">Parent password</string>
     <string name="editor_export_pw_empty">Enter a password, or untick the box</string>
     <string name="editor_export_go">Export</string>
+    <string name="editor_resources">Music &amp; castles</string>
+    <string name="editor_import_music">＋ Import music (.ogg)</string>
+    <string name="editor_import_castle">＋ Import castle image (.png / .jpg)</string>
+    <string name="editor_res_music">🎵 Music _ (tap to delete)</string>
+    <string name="editor_res_castle">🏰 Castle _ (tap to delete)</string>
+    <string name="editor_importing">Importing…</string>
+    <string name="editor_imported">Imported. Reload packs to use it.</string>
+    <string name="editor_import_fail">Import failed</string>
+    <string name="editor_import_not_ogg">That isn\'t an .ogg file. Convert it to Ogg Vorbis first.</string>
+    <string name="editor_import_not_image">That isn\'t an image file</string>
+    <string name="editor_delete_res_title">Delete?</string>
+    <string name="editor_delete_music_msg">Stages using this music will switch to no music. This can\'t be undone.</string>
+    <string name="editor_delete_castle_msg">Stages using this castle will switch to the default castle. This can\'t be undone.</string>
 </resources>
