@@ -9,4 +9,9 @@
     <string name="editor_pack_created">Created pack _</string>
     <string name="editor_pack_create_fail">Failed to create pack</string>
     <string name="editor_pack_workspace">Editable pack (workspace)</string>
+    <string name="editor_add_enemy">Add enemy (copy of BC enemy)</string>
+    <string name="editor_search_enemy">Search by number or name</string>
+    <string name="editor_copying">Copying enemy…</string>
+    <string name="editor_add_enemy_done">Added _</string>
+    <string name="editor_add_enemy_fail">Failed to add enemy</string>
 </resources>
