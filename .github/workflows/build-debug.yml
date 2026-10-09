@@ -64,8 +64,13 @@ jobs:
             "configuration_version": "1"
           }
           EOF
+
+      # MainActivity reads res/raw/service_key.json (the devs' Google Drive key
+      # for uploading crash logs). It's git-ignored, so add a placeholder;
+      # log uploads will just fail quietly in your build.
       - name: Create placeholder service_key.json
         run: echo '{}' > app/src/main/res/raw/service_key.json
+
       # Upstream signs every build with a keystore at a path on the dev's Mac.
       # Use app/ci-keystore.jks instead: reuse it if you've committed it,
       # otherwise generate one (and upload it below so you can commit it).
@@ -85,7 +90,7 @@ jobs:
       # official BCU instead of conflicting with it.
       - name: Install side-by-side with official BCU
         run: |
-                    sed -i 's/^\( *\)debug {$/\1debug {\n\1    applicationIdSuffix ".editor"\n\1    signingConfig signingConfigs.release/' app/build.gradle
+          sed -i 's/^\( *\)debug {$/\1debug {\n\1    applicationIdSuffix ".editor"\n\1    signingConfig signingConfigs.release/' app/build.gradle
           sed -i 's/"com\.mandarin\.bcu\.provider"/"${applicationId}.provider"/' app/src/main/AndroidManifest.xml
           grep -rl '"com.mandarin.bcu.provider"' app/src/main/java/com | while read -r f; do
             sed -i 's/"com\.mandarin\.bcu\.provider"/com.mandarin.bcu.BuildConfig.APPLICATION_ID + ".provider"/g' "$f"
@@ -106,4 +111,3 @@ jobs:
         with:
           name: ci-keystore-COMMIT-TO-app-folder
           path: app/ci-keystore.jks
-          
