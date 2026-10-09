@@ -26,6 +26,10 @@ import common.pack.Identifier
 import common.pack.PackData
 import common.pack.Source
 import common.pack.UserProfile
+import common.util.pack.Background
+import common.util.stage.CastleImg
+import common.util.stage.Limit
+import common.util.stage.Music
 import common.util.stage.SCDef
 import common.util.stage.Stage
 import common.util.unit.AbEnemy
@@ -61,6 +65,20 @@ class StageEditor : AppCompatActivity() {
     private lateinit var bossGuardBox: CheckBox
 
     private lateinit var linesBox: LinearLayout
+
+    // [Part 2] Looks & sound
+    private var selBg: Identifier<Background>? = null
+    private var selCastle: Identifier<CastleImg>? = null
+    private var selMus0: Identifier<Music>? = null
+    private var selMus1: Identifier<Music>? = null
+    private lateinit var mushField: EditText
+
+    // [Part 2] Limits
+    private val rarityBoxes = ArrayList<CheckBox>()
+    private lateinit var maxCatsField: EditText
+    private lateinit var minCostField: EditText
+    private lateinit var maxCostField: EditText
+    private lateinit var firstRowBox: CheckBox
 
     /** One enemy spawn line in the UI. [original] keeps settings this screen doesn't show. */
     private inner class LineRow(var enemy: Identifier<AbEnemy>?, val original: SCDef.Line?) {
@@ -154,6 +172,9 @@ class StageEditor : AppCompatActivity() {
         noContBox = checkBox(root, R.string.editor_stage_nocont, stage.non_con)
         bossGuardBox = checkBox(root, R.string.editor_stage_bossguard, stage.bossGuard)
 
+        buildLooks(root)
+        buildLimits(root)
+
         header(root, R.string.editor_section_lines)
 
         val note = TextView(this)
@@ -197,7 +218,111 @@ class StageEditor : AppCompatActivity() {
         buttons.addView(save, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(buttons)
 
+        val delete = Button(this)
+        delete.text = getString(R.string.editor_delete_stage)
+        delete.setOnClickListener {
+            EditorActions.confirm(this, R.string.editor_delete_stage_title, R.string.editor_delete_stage_msg) {
+                stage.getCont().list.remove(stage)
+
+                try {
+                    Source.Workspace.saveWorkspace()
+                } catch (e: Exception) {
+                    Log.e("StageEditor", "Failed to save", e)
+                }
+
+                PackManagement.needReload = true
+                StaticStore.showShortMessage(this, R.string.editor_deleted)
+                finish()
+            }
+        }
+        root.addView(delete)
+
         setContentView(scroll)
+    }
+
+    private fun pickerButton(root: LinearLayout, label: Int, text: String, onClick: (Button) -> Unit): Button {
+        val l = TextView(this)
+        l.text = getString(label)
+        l.setTextColor(textColor)
+        l.alpha = 0.8f
+        l.setPadding(0, dp(8), 0, 0)
+        root.addView(l)
+
+        val b = Button(this)
+        b.text = text
+        b.isAllCaps = false
+        b.setOnClickListener { onClick(b) }
+        root.addView(b)
+        return b
+    }
+
+    private fun buildLooks(root: LinearLayout) {
+        header(root, R.string.editor_section_looks)
+
+        selBg = stage.bg
+        selCastle = stage.castle
+        selMus0 = stage.mus0
+        selMus1 = stage.mus1
+
+        pickerButton(root, R.string.editor_stage_bg, EditorActions.bgLabel(this, selBg)) { b ->
+            EditorActions.pickBackground(this, pack) { id ->
+                changed = true
+                selBg = id
+                b.text = EditorActions.bgLabel(this, id)
+            }
+        }
+
+        pickerButton(root, R.string.editor_stage_castle, EditorActions.castleLabel(this, selCastle)) { b ->
+            EditorActions.pickCastle(this, stage) { id ->
+                changed = true
+                selCastle = id
+                b.text = EditorActions.castleLabel(this, id)
+            }
+        }
+
+        pickerButton(root, R.string.editor_stage_music, EditorActions.musicLabel(this, selMus0)) { b ->
+            EditorActions.pickMusic(this, pack) { id ->
+                changed = true
+                selMus0 = id
+                b.text = EditorActions.musicLabel(this, id)
+            }
+        }
+
+        pickerButton(root, R.string.editor_stage_music2, EditorActions.musicLabel(this, selMus1)) { b ->
+            EditorActions.pickMusic(this, pack) { id ->
+                changed = true
+                selMus1 = id
+                b.text = EditorActions.musicLabel(this, id)
+            }
+        }
+
+        mushField = field(root, R.string.editor_stage_mush, stage.mush.toString())
+    }
+
+    private fun buildLimits(root: LinearLayout) {
+        header(root, R.string.editor_section_limits)
+
+        val lim = stage.lim ?: Limit()
+
+        val note = TextView(this)
+        note.text = getString(R.string.editor_limits_note)
+        note.setTextColor(textColor)
+        note.alpha = 0.7f
+        root.addView(note)
+
+        val rarities = listOf(R.string.editor_rar_normal, R.string.editor_rar_special, R.string.editor_rar_rare,
+            R.string.editor_rar_super, R.string.editor_rar_uber, R.string.editor_rar_legend)
+
+        for (i in rarities.indices) {
+            // rare == 0 means every rarity is allowed
+            val allowed = lim.rare == 0 || ((lim.rare shr i) and 1) == 1
+            rarityBoxes.add(checkBox(root, rarities[i], allowed))
+        }
+
+        maxCatsField = field(root, R.string.editor_lim_num, lim.num.toString())
+        minCostField = field(root, R.string.editor_lim_min, lim.min.toString())
+        maxCostField = field(root, R.string.editor_lim_max, lim.max.toString())
+        firstRowBox = checkBox(root, R.string.editor_lim_line, lim.line == 1)
     }
 
     private fun addRow(row: LineRow) {
@@ -309,6 +434,25 @@ class StageEditor : AppCompatActivity() {
         val hp = readInt(hpField, 1) ?: return
         val max = readInt(maxField, 1, 50) ?: return
 
+        val mush = readInt(mushField, 0, 100) ?: return
+        val maxCats = readInt(maxCatsField, 0, 50) ?: return
+        val minCost = readInt(minCostField, 0) ?: return
+        val maxCost = readInt(maxCostField, 0) ?: return
+
+        var rare = 0
+        for (i in rarityBoxes.indices)
+            if (rarityBoxes[i].isChecked)
+                rare = rare or (1 shl i)
+
+        if (rare == 0) {
+            StaticStore.showShortMessage(this, R.string.editor_lim_no_rarity)
+            return
+        }
+
+        // All rarities allowed is stored as 0 (no restriction)
+        if (rare == (1 shl rarityBoxes.size) - 1)
+            rare = 0
+
         val lines = ArrayList<SCDef.Line>()
 
         for (row in rows) {
@@ -350,6 +494,20 @@ class StageEditor : AppCompatActivity() {
         stage.non_con = noContBox.isChecked
         stage.bossGuard = bossGuardBox.isChecked
         stage.data.datas = lines.toTypedArray()
+
+        stage.bg = selBg
+        stage.castle = selCastle
+        stage.mus0 = selMus0
+        stage.mus1 = selMus1
+        stage.mush = mush
+
+        val lim = stage.lim ?: Limit()
+        lim.rare = rare
+        lim.num = maxCats
+        lim.min = minCost
+        lim.max = maxCost
+        lim.line = if (firstRowBox.isChecked) 1 else 0
+        stage.lim = lim
 
         val name = nameField.text.toString().trim()
         if (name.isNotEmpty())
