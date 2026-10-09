@@ -10,11 +10,13 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ListView
+import androidx.core.content.FileProvider
 import com.mandarin.bcu.EnemyEditor
 import com.mandarin.bcu.PackManagement
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
 import common.battle.data.CustomEnemy
+import common.CommonStatic
 import common.pack.Identifier
 import common.pack.PackData
 import common.pack.Source
@@ -123,6 +125,60 @@ object EditorActions {
 
         if (!ac.isDestroyed && !ac.isFinishing) {
             dialog.show()
+        }
+    }
+
+    /** Export a workspace pack to a .pack.bcuzip file, then open the share sheet. */
+    fun exportPack(ac: Activity, pack: PackData.UserPack) {
+        val source = pack.source as? Source.Workspace ?: return
+
+        val progress = AlertDialog.Builder(ac)
+            .setMessage(R.string.editor_exporting)
+            .setCancelable(false)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            progress.show()
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val file = try {
+                // Same export the PC version uses; writes <app files>/exports/<id>.pack.bcuzip
+                source.export(pack, "", null) { _ -> }
+
+                val f = CommonStatic.ctx.getAuxFile("./exports/" + pack.sid + ".pack.bcuzip")
+
+                if (f.exists()) f else null
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Failed to export pack", e)
+
+                null
+            }
+
+            ac.runOnUiThread {
+                if (progress.isShowing)
+                    progress.dismiss()
+
+                if (file == null) {
+                    StaticStore.showShortMessage(ac, R.string.editor_export_fail)
+                    return@runOnUiThread
+                }
+
+                try {
+                    val uri = FileProvider.getUriForFile(ac, ac.packageName + ".provider", file)
+
+                    val intent = Intent(Intent.ACTION_SEND)
+                    intent.type = "*/*"
+                    intent.putExtra(Intent.EXTRA_STREAM, uri)
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+
+                    ac.startActivity(Intent.createChooser(intent, ac.getString(R.string.editor_export_share)))
+                } catch (e: Exception) {
+                    Log.e("EditorActions", "Failed to share pack", e)
+
+                    StaticStore.showShortMessage(ac, ac.getString(R.string.editor_export_saved).replace("_", file.absolutePath))
+                }
+            }
         }
     }
 
