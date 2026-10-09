@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
@@ -29,6 +31,7 @@ import common.battle.data.CustomUnit
 import common.battle.data.PCoin
 import common.CommonStatic
 import common.io.PackLoader
+import common.system.files.FDFile
 import common.pack.Identifier
 import common.pack.PackData
 import common.pack.Source
@@ -1187,6 +1190,164 @@ object EditorActions {
             }
             .setNegativeButton(R.string.main_file_cancel) { _, _ -> unlockParents(ac, list, i + 1, deps, onDone) }
             .show()
+    }
+
+    // ---------- Resources: music & castles ----------
+
+    fun showResources(ac: Activity, pack: PackData.UserPack) {
+        val musics = pack.musics.list.filterNotNull()
+        val castles = pack.castles.list.filterNotNull()
+
+        val labels = ArrayList<CharSequence>()
+        labels.add(ac.getString(R.string.editor_import_music))
+        labels.add(ac.getString(R.string.editor_import_castle))
+        musics.forEach { labels.add(ac.getString(R.string.editor_res_music).replace("_", Data.trio(it.id.id))) }
+        castles.forEach { labels.add(ac.getString(R.string.editor_res_castle).replace("_", Data.trio(it.id.id))) }
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_resources)
+            .setItems(labels.toTypedArray()) { _, which ->
+                when {
+                    which == 0 -> pickFile(ac, "*/*") { uri -> importMusic(ac, pack, uri) }
+                    which == 1 -> pickFile(ac, "image/*") { uri -> importCastle(ac, pack, uri) }
+                    which < 2 + musics.size -> {
+                        val m = musics[which - 2]
+                        confirm(ac, R.string.editor_delete_res_title, R.string.editor_delete_music_msg) { deleteMusic(ac, pack, m) }
+                    }
+                    else -> {
+                        val c = castles[which - 2 - musics.size]
+                        confirm(ac, R.string.editor_delete_res_title, R.string.editor_delete_castle_msg) { deleteCastle(ac, pack, c) }
+                    }
+                }
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun pickFile(ac: Activity, mime: String, onPicked: (Uri) -> Unit) {
+        val pm = ac as? PackManagement
+
+        if (pm == null) {
+            StaticStore.showShortMessage(ac, R.string.editor_import_fail)
+            return
+        }
+
+        pm.pickEditorFile(mime, onPicked)
+    }
+
+    /** Runs [work] off the main thread with a "working" dialog, then reports success or failure. */
+    private fun runImport(ac: Activity, work: () -> Int?) {
+        val progress = AlertDialog.Builder(ac)
+            .setMessage(R.string.editor_importing)
+            .setCancelable(false)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            progress.show()
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            // null = success, otherwise a string resource describing the problem
+            val error = try {
+                work()
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Import failed", e)
+                R.string.editor_import_fail
+            }
+
+            ac.runOnUiThread {
+                if (progress.isShowing)
+                    progress.dismiss()
+
+                if (error == null) {
+                    PackManagement.needReload = true
+                    StaticStore.showShortMessage(ac, R.string.editor_imported)
+                } else {
+                    StaticStore.showShortMessage(ac, error)
+                }
+            }
+        }
+    }
+
+    private fun importMusic(ac: Activity, pack: PackData.UserPack, uri: Uri) {
+        runImport(ac) {
+            val bytes = ac.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return@runImport R.string.editor_import_fail
+
+            // Ogg files start with "OggS"
+            if (bytes.size < 4 || String(bytes, 0, 4, Charsets.US_ASCII) != "OggS")
+                return@runImport R.string.editor_import_not_ogg
+
+            val idx = pack.musics.nextInd()
+            val file = CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/musics/" + Data.trio(idx) + ".ogg")
+
+            file.parentFile?.mkdirs()
+            file.writeBytes(bytes)
+
+            pack.musics.set(idx, Music(Identifier(pack.sid, Music::class.java, idx), 0, FDFile(file)))
+
+            Source.Workspace.saveWorkspace()
+            null
+        }
+    }
+
+    private fun importCastle(ac: Activity, pack: PackData.UserPack, uri: Uri) {
+        runImport(ac) {
+            val bmp = ac.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                ?: return@runImport R.string.editor_import_not_image
+
+            val idx = pack.castles.nextInd()
+            val file = CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/castles/" + Data.trio(idx) + ".png")
+
+            file.parentFile?.mkdirs()
+
+            // Always store as PNG (keeps transparency, and works for JPG input too)
+            file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+            val img = pack.source.readImage(Source.BasePath.CASTLE.toString(), idx)
+                ?: return@runImport R.string.editor_import_fail
+
+            pack.castles.set(idx, CastleImg(Identifier(pack.sid, CastleImg::class.java, idx), img))
+
+            Source.Workspace.saveWorkspace()
+            null
+        }
+    }
+
+    /** All stages in the pack, for cleaning up references to deleted resources. */
+    private fun allStages(pack: PackData.UserPack): List<Stage> {
+        return pack.mc.maps.list.filterNotNull().flatMap { it.list.list.filterNotNull() }
+    }
+
+    private fun deleteMusic(ac: Activity, pack: PackData.UserPack, m: Music) {
+        // Stages using it go back to "None"
+        for (st in allStages(pack)) {
+            if (st.mus0?.pack == pack.sid && st.mus0?.id == m.id.id) st.mus0 = null
+            if (st.mus1?.pack == pack.sid && st.mus1?.id == m.id.id) st.mus1 = null
+        }
+
+        pack.musics.remove(m)
+        CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/musics/" + Data.trio(m.id.id) + ".ogg").delete()
+
+        if (save(ac))
+            StaticStore.showShortMessage(ac, R.string.editor_deleted)
+    }
+
+    private fun deleteCastle(ac: Activity, pack: PackData.UserPack, c: CastleImg) {
+        // Stages using it go back to the default castle
+        for (st in allStages(pack))
+            if (st.castle?.pack == pack.sid && st.castle?.id == c.id.id)
+                st.castle = null
+
+        pack.castles.remove(c)
+        CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/castles/" + Data.trio(c.id.id) + ".png").delete()
+
+        if (save(ac))
+            StaticStore.showShortMessage(ac, R.string.editor_deleted)
     }
 
     private fun openStage(ac: Activity, pack: PackData.UserPack, sm: StageMap, st: Stage) {
