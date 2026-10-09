@@ -14,4 +14,29 @@
     <string name="editor_copying">Copying enemy…</string>
     <string name="editor_add_enemy_done">Added _</string>
     <string name="editor_add_enemy_fail">Failed to add enemy</string>
+    <string name="editor_edit_enemies">Edit enemies</string>
+    <string name="editor_no_enemies">This pack has no enemies yet. Use \"Add enemy\" first.</string>
+    <string name="editor_enemy_missing">Couldn\'t open that enemy</string>
+    <string name="editor_enemy_title">Edit Enemy</string>
+    <string name="editor_section_basic">Basic stats</string>
+    <string name="editor_section_attacks">Attacks</string>
+    <string name="editor_name">Name</string>
+    <string name="editor_hp">HP</string>
+    <string name="editor_kb">Knockbacks</string>
+    <string name="editor_speed">Speed</string>
+    <string name="editor_range">Range</string>
+    <string name="editor_width">Width (hitbox)</string>
+    <string name="editor_tba">Attack cooldown (frames, 30 = 1 second)</string>
+    <string name="editor_drop">Money drop</string>
+    <string name="editor_attack_n">Attack _</string>
+    <string name="editor_damage">Damage</string>
+    <string name="editor_pre">Foreswing (frames before the hit)</string>
+    <string name="editor_area">Area attack</string>
+    <string name="editor_save">Save</string>
+    <string name="editor_saved">Saved</string>
+    <string name="editor_save_fail">Failed to save</string>
+    <string name="editor_invalid_number">Enter a whole number, at least _</string>
+    <string name="editor_discard_title">Discard changes?</string>
+    <string name="editor_discard_msg">Your changes to this enemy haven\'t been saved.</string>
+    <string name="editor_discard">Discard</string>
 </resources>
