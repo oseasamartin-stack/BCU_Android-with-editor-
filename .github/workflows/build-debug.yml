@@ -85,7 +85,7 @@ jobs:
       # official BCU instead of conflicting with it.
       - name: Install side-by-side with official BCU
         run: |
-          sed -i 's/^\( *\)debug {$/\1debug {\n\1    applicationIdSuffix ".editor"/' app/build.gradle
+                    sed -i 's/^\( *\)debug {$/\1debug {\n\1    applicationIdSuffix ".editor"\n\1    signingConfig signingConfigs.release/' app/build.gradle
           sed -i 's/"com\.mandarin\.bcu\.provider"/"${applicationId}.provider"/' app/src/main/AndroidManifest.xml
           grep -rl '"com.mandarin.bcu.provider"' app/src/main/java/com | while read -r f; do
             sed -i 's/"com\.mandarin\.bcu\.provider"/com.mandarin.bcu.BuildConfig.APPLICATION_ID + ".provider"/g' "$f"
