@@ -101,4 +101,34 @@
     <string name="editor_line_remove">Remove this enemy</string>
     <string name="editor_line_no_enemy">Every line needs an enemy</string>
     <string name="editor_discard_stage_msg">Your changes to this stage haven\'t been saved.</string>
+    <string name="editor_search">Search</string>
+    <string name="editor_default">Default</string>
+    <string name="editor_none">None</string>
+    <string name="editor_delete">Delete</string>
+    <string name="editor_deleted">Deleted</string>
+    <string name="editor_delete_map">🗑 Delete this map</string>
+    <string name="editor_delete_map_title">Delete map?</string>
+    <string name="editor_delete_map_msg">This deletes the map and every stage in it. This can\'t be undone.</string>
+    <string name="editor_delete_stage">🗑 Delete this stage</string>
+    <string name="editor_delete_stage_title">Delete stage?</string>
+    <string name="editor_delete_stage_msg">This stage will be removed from the map. This can\'t be undone.</string>
+    <string name="editor_section_looks">Background, castle &amp; music</string>
+    <string name="editor_stage_bg">Background</string>
+    <string name="editor_stage_castle">Enemy castle</string>
+    <string name="editor_stage_music">Music</string>
+    <string name="editor_stage_music2">Music when enemy base gets low</string>
+    <string name="editor_stage_mush">Switch music when enemy base HP is at or below (%)</string>
+    <string name="editor_section_limits">Limits</string>
+    <string name="editor_limits_note">Which cats the player may use. 0 = no limit.</string>
+    <string name="editor_rar_normal">Normal cats allowed</string>
+    <string name="editor_rar_special">Special cats allowed</string>
+    <string name="editor_rar_rare">Rare cats allowed</string>
+    <string name="editor_rar_super">Super Rare cats allowed</string>
+    <string name="editor_rar_uber">Uber Rare cats allowed</string>
+    <string name="editor_rar_legend">Legend Rare cats allowed</string>
+    <string name="editor_lim_num">Max cats on the field (0 = no limit)</string>
+    <string name="editor_lim_min">Min deploy cost (0 = no limit)</string>
+    <string name="editor_lim_max">Max deploy cost (0 = no limit)</string>
+    <string name="editor_lim_line">Only the first lineup row can be used</string>
+    <string name="editor_lim_no_rarity">Allow at least one rarity</string>
 </resources>
