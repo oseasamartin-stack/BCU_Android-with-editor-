@@ -31,6 +31,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         const val MENU_EDIT_ENEMIES = 1002
         const val MENU_EXPORT = 1003
         const val MENU_STAGES = 1004
+        const val MENU_UNITS = 1005
     }
 
     class ViewHolder(v: View) {
@@ -98,6 +99,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         if (isWorkspace) {
             menu.add(0, MENU_ADD_ENEMY, 2, R.string.editor_add_enemy)
             menu.add(0, MENU_EDIT_ENEMIES, 3, R.string.editor_edit_enemies)
+            menu.add(0, MENU_UNITS, 4, R.string.editor_edit_units)
             menu.add(0, MENU_STAGES, 4, R.string.editor_edit_stages)
             menu.add(0, MENU_EXPORT, 5, R.string.editor_export)
         }
@@ -109,6 +111,9 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
                 }
                 MENU_EDIT_ENEMIES -> {
                     EditorActions.showEditEnemiesDialog(ac, p)
+                }
+                MENU_UNITS -> {
+                    EditorActions.showUnits(ac, p)
                 }
                 MENU_STAGES -> {
                     EditorActions.showStageMaps(ac, p)
