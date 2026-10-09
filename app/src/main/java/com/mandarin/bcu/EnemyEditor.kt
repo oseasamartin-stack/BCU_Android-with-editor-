@@ -27,6 +27,7 @@ import common.battle.data.AtkDataModel
 import common.battle.data.CustomEnemy
 import common.battle.data.CustomEntity
 import common.battle.data.CustomUnit
+import common.battle.data.PCoin
 import common.util.lang.MultiLangData
 import common.util.unit.Form
 import common.pack.Source
@@ -102,6 +103,19 @@ class EnemyEditor : AppCompatActivity() {
 
     // [Units] On/off cat abilities stored as bit flags in ce.abi
     private val flagBoxes = LinkedHashMap<Int, CheckBox>()
+
+    // [Units] Talents. Each talent is 14 numbers: type, max level, 4 x (level 1 value, max value), then extras.
+    private inner class TalentRow(val data: IntArray) {
+        lateinit var view: LinearLayout
+        lateinit var title: TextView
+        lateinit var maxLv: EditText
+        val lo = ArrayList<EditText>()
+        val hi = ArrayList<EditText>()
+        lateinit var superBox: CheckBox
+    }
+
+    private val talentRows = ArrayList<TalentRow>()
+    private lateinit var talentBox: LinearLayout
 
     /** One ability: a checkbox, its number fields, and how to write them back. */
     private class AbilityRow(
@@ -398,9 +412,9 @@ class EnemyEditor : AppCompatActivity() {
         root.addView(h)
     }
 
-    private fun field(root: LinearLayout, label: Int, value: String, number: Boolean = true, signed: Boolean = false): EditText {
+    private fun field(root: LinearLayout, label: Int, value: String, number: Boolean = true, signed: Boolean = false, labelText: String? = null): EditText {
         val l = TextView(this)
-        l.text = getString(label)
+        l.text = labelText ?: getString(label)
         l.setTextColor(textColor)
         l.alpha = 0.8f
         l.setPadding(0, dp(8), 0, 0)
@@ -488,8 +502,10 @@ class EnemyEditor : AppCompatActivity() {
         val defGroup = collapsible(root, R.string.editor_group_defense, false)
         val imuGroup = collapsible(root, R.string.editor_group_immune, false)
 
-        if (isUnit)
+        if (isUnit) {
             buildCatAbilities(collapsible(root, R.string.editor_group_cat, true), p)
+            buildTalents(collapsible(root, R.string.editor_group_talents, false))
+        }
 
         // Values shown when an ability is off (sensible starting points)
         fun orDef(v: Int, def: Int) = if (v != 0) v else def
@@ -728,6 +744,193 @@ class EnemyEditor : AppCompatActivity() {
         }
     }
 
+    // ---------------- Talents ----------------
+
+    private fun talentName(type: Int): String {
+        val names = resources.getStringArray(R.array.editor_talent_names)
+        return if (type in names.indices) names[type] else "#$type"
+    }
+
+    /** How many values a talent type uses (0 for on/off talents). */
+    private fun talentParamCount(type: Int): Int {
+        if (type !in Data.PC_CORRES.indices)
+            return 0
+
+        val t = Data.PC_CORRES[type]
+
+        // Linked immunity talents have no values of their own
+        return if (t[3] != -1) 0 else t[2]
+    }
+
+    /** A readable label for value [j] of a talent [type]. */
+    private fun talentParamLabel(type: Int, j: Int): String {
+        val t = Data.PC_CORRES[type]
+
+        if (t[0] == Data.PC_BASE.toInt()) {
+            return getString(when (t[1]) {
+                Data.PC2_COST.toInt() -> R.string.editor_tp_cost
+                Data.PC2_CD.toInt() -> R.string.editor_tp_cd
+                Data.PC2_SPEED.toInt() -> R.string.editor_tp_speed
+                Data.PC2_HB.toInt() -> R.string.editor_tp_hb
+                Data.PC2_ATK.toInt() -> R.string.editor_tp_atk
+                Data.PC2_HP.toInt() -> R.string.editor_tp_hp
+                Data.PC2_TBA.toInt() -> R.string.editor_tp_tba
+                else -> R.string.editor_tp_value
+            })
+        }
+
+        // Proc talents: name the value after the ability's own field
+        val field = try {
+            val fields = procs.getArr(t[1]).declaredFields
+            // Behemoth dodge writes to its 2nd and 3rd fields
+            val idx = if (t[1] == Data.P_BSTHUNT.toInt()) j + 1 else j
+            if (idx in fields.indices) fields[idx].name else ""
+        } catch (_: Exception) {
+            ""
+        }
+
+        return getString(when (field) {
+            "prob" -> R.string.editor_tp_prob
+            "time" -> R.string.editor_tp_time
+            "mult", "multi" -> R.string.editor_tp_mult
+            "lv" -> R.string.editor_tp_lv
+            "dis_0" -> R.string.editor_tp_dis0
+            "dis_1" -> R.string.editor_tp_dis1
+            "dis" -> R.string.editor_tp_dis
+            "health" -> R.string.editor_tp_health
+            else -> R.string.editor_tp_value
+        })
+    }
+
+    private fun buildTalents(group: LinearLayout) {
+        val note = TextView(this)
+        note.text = getString(R.string.editor_talents_note)
+        note.setTextColor(textColor)
+        note.alpha = 0.7f
+        group.addView(note)
+
+        talentBox = LinearLayout(this)
+        talentBox.orientation = LinearLayout.VERTICAL
+        group.addView(talentBox)
+
+        val coin = (ce as? CustomUnit)?.pcoin
+
+        if (coin != null)
+            for (d in coin.info)
+                addTalentRow(TalentRow(d.copyOf(14)))
+
+        val add = Button(this)
+        add.text = getString(R.string.editor_add_talent)
+        add.setOnClickListener { pickTalentType() }
+        group.addView(add)
+    }
+
+    private fun pickTalentType() {
+        if (talentRows.size >= 8) {
+            StaticStore.showShortMessage(this, R.string.editor_max_talents)
+            return
+        }
+
+        val types = Data.PC_CORRES.indices.filter { it > 0 && Data.PC_CORRES[it][0] != -1 }
+        val labels = types.map<Int, CharSequence> { talentName(it) }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.editor_add_talent)
+            .setItems(labels) { _, which ->
+                val d = IntArray(14)
+                d[0] = types[which]
+                d[1] = if (talentParamCount(d[0]) == 0) 1 else 10
+
+                changed = true
+                addTalentRow(TalentRow(d))
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .show()
+    }
+
+    private fun addTalentRow(row: TalentRow) {
+        val type = row.data[0]
+        val count = talentParamCount(type)
+
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.setPadding(dp(12), dp(8), dp(12), dp(8))
+        card.setBackgroundResource(R.drawable.cell_shape)
+
+        val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        lp.setMargins(0, dp(8), 0, dp(8))
+
+        row.view = card
+
+        row.title = TextView(this)
+        row.title.setTypeface(null, Typeface.BOLD)
+        row.title.setTextColor(textColor)
+        card.addView(row.title)
+
+        row.maxLv = field(card, R.string.editor_talent_maxlv, maxOf(1, row.data[1]).toString())
+
+        if (count == 0) {
+            row.maxLv.isEnabled = false
+            row.maxLv.setText("1")
+        }
+
+        for (j in 0 until count) {
+            val label = talentParamLabel(type, j)
+            row.lo.add(field(card, 0, row.data[2 + j * 2].toString(), signed = true, labelText = getString(R.string.editor_talent_at_lv1).replace("_", label)))
+            row.hi.add(field(card, 0, row.data[3 + j * 2].toString(), signed = true, labelText = getString(R.string.editor_talent_at_max).replace("_", label)))
+        }
+
+        row.superBox = CheckBox(this)
+        row.superBox.text = getString(R.string.editor_talent_super)
+        row.superBox.setTextColor(textColor)
+        row.superBox.isChecked = row.data[13] == 1
+        row.superBox.setOnCheckedChangeListener { _, _ -> changed = true }
+        card.addView(row.superBox)
+
+        val remove = Button(this)
+        remove.text = getString(R.string.editor_remove_talent)
+        remove.setOnClickListener {
+            changed = true
+            talentRows.remove(row)
+            talentBox.removeView(card)
+            renumberTalents()
+        }
+        card.addView(remove)
+
+        talentRows.add(row)
+        talentBox.addView(card, lp)
+        renumberTalents()
+    }
+
+    private fun renumberTalents() {
+        for (i in talentRows.indices) {
+            val r = talentRows[i]
+            r.title.text = getString(R.string.editor_talent_n).replace("_", (i + 1).toString()) + " " + talentName(r.data[0])
+        }
+    }
+
+    /** Reads the talent rows; returns null (and flags the field) if something is invalid. */
+    private fun readTalents(): List<IntArray>? {
+        val out = ArrayList<IntArray>()
+
+        for (row in talentRows) {
+            val d = row.data.copyOf(14)
+
+            d[1] = readInt(row.maxLv, 1, 30) ?: return null
+
+            for (j in row.lo.indices) {
+                d[2 + j * 2] = readInt(row.lo[j], -1000000) ?: return null
+                d[3 + j * 2] = readInt(row.hi[j], -1000000) ?: return null
+            }
+
+            d[13] = if (row.superBox.isChecked) 1 else 0
+
+            out.add(d)
+        }
+
+        return out
+    }
+
     /** A tappable section title that shows/hides its contents. Returns the contents container. */
     private fun collapsible(root: LinearLayout, title: Int, expanded: Boolean): LinearLayout {
         val head = TextView(this)
@@ -809,6 +1012,8 @@ class EnemyEditor : AppCompatActivity() {
             val l1 = readInt(row.ld1, -100000) ?: return
             atkVals.add(intArrayOf(dmg, pre, l0, l1))
         }
+
+        val talents = if (isUnit) readTalents() ?: return else null
 
         val abilityValues = ArrayList<List<Int>>()
 
@@ -896,7 +1101,29 @@ class EnemyEditor : AppCompatActivity() {
         ce.common = true
         ce.rep.proc = procs
 
+        // Talents (units only)
+        val cuT = ce as? CustomUnit
+
+        if (cuT != null && talents != null) {
+            if (talents.isEmpty()) {
+                cuT.pcoin = null
+            } else {
+                val coin = cuT.pcoin ?: PCoin(cuT)
+                coin.info.clear()
+                coin.info.addAll(talents)
+                coin.max = IntArray(talents.size) { talents[it][1] }
+                cuT.pcoin = coin
+            }
+        }
+
         ce.updateAllProc()
+
+        // Recalculate the fully-talented version after stats/abilities changed
+        try {
+            (ce as? CustomUnit)?.pcoin?.update()
+        } catch (e: Exception) {
+            Log.e("EnemyEditor", "Failed to update talents", e)
+        }
 
         val name = nameField.text.toString().trim()
         if (name.isNotEmpty())
