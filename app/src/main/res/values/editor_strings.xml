@@ -73,4 +73,32 @@
     <string name="editor_export_fail">Failed to export pack</string>
     <string name="editor_export_share">Share or save pack</string>
     <string name="editor_export_saved">Exported to _</string>
+    <string name="editor_pick_enemy">Pick an enemy</string>
+    <string name="editor_edit_stages">Edit stages</string>
+    <string name="editor_new_map">＋ New map</string>
+    <string name="editor_new_stage">＋ New stage</string>
+    <string name="editor_rename_map">✎ Rename this map</string>
+    <string name="editor_map_name">Map name</string>
+    <string name="editor_stage_missing">Couldn\'t open that stage</string>
+    <string name="editor_stage_title">Edit Stage</string>
+    <string name="editor_section_stage">Stage settings</string>
+    <string name="editor_stage_len">Stage length</string>
+    <string name="editor_stage_hp">Enemy base HP</string>
+    <string name="editor_stage_max">Max enemies on screen (1–50)</string>
+    <string name="editor_stage_nocont">No continues</string>
+    <string name="editor_stage_bossguard">Boss guard (base can\'t be hit while the boss is alive)</string>
+    <string name="editor_section_lines">Enemies</string>
+    <string name="editor_lines_note">Times are in frames (30 = 1 second). Count 0 = unlimited.</string>
+    <string name="editor_add_line">＋ Add enemy</string>
+    <string name="editor_line_hp">HP magnification (%)</string>
+    <string name="editor_line_atk">Attack magnification (%)</string>
+    <string name="editor_line_count">Count (0 = unlimited)</string>
+    <string name="editor_line_first">First spawn (frames)</string>
+    <string name="editor_line_respawn_min">Respawn time min (frames)</string>
+    <string name="editor_line_respawn_max">Respawn time max (frames)</string>
+    <string name="editor_line_basehp">Spawns when enemy base HP is at or below (%)</string>
+    <string name="editor_line_boss">Boss (shockwave on spawn)</string>
+    <string name="editor_line_remove">Remove this enemy</string>
+    <string name="editor_line_no_enemy">Every line needs an enemy</string>
+    <string name="editor_discard_stage_msg">Your changes to this stage haven\'t been saved.</string>
 </resources>
