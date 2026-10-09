@@ -228,4 +228,12 @@
     <string name="editor_cat_bounty_pct">Extra money from kills (%)</string>
     <string name="editor_cat_break">Barrier breaker</string>
     <string name="editor_cat_shieldbreak">Shield piercing</string>
+    <string name="editor_add_form">＋ Add form (copy of form _)</string>
+    <string name="editor_remove_form">➖ Remove last form</string>
+    <string name="editor_remove_form_title">Remove last form?</string>
+    <string name="editor_remove_form_msg">The unit\'s last form and its animation will be removed. This can\'t be undone.</string>
+    <string name="editor_max_forms">A unit can have at most 4 forms</string>
+    <string name="editor_need_form">A unit needs at least one form</string>
+    <string name="editor_copying_form">Copying form…</string>
+    <string name="editor_form_added">Form added</string>
 </resources>
