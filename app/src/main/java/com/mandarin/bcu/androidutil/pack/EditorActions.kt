@@ -3,6 +3,12 @@ package com.mandarin.bcu.androidutil.pack
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.ImageView
+import android.widget.TextView
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -25,6 +31,10 @@ import common.pack.UserProfile
 import common.util.Data
 import common.util.anim.AnimCE
 import common.util.lang.MultiLangCont
+import common.util.pack.Background
+import common.util.stage.CastleImg
+import common.util.stage.CastleList
+import common.util.stage.Music
 import common.util.stage.Stage
 import common.util.stage.StageMap
 import common.util.unit.AbEnemy
@@ -357,6 +367,7 @@ object EditorActions {
         val labels = ArrayList<CharSequence>()
         labels.add(ac.getString(R.string.editor_new_stage))
         labels.add(ac.getString(R.string.editor_rename_map))
+        labels.add(ac.getString(R.string.editor_delete_map))
         stages.forEach { labels.add("${Data.trio(it.id.id)} - ${it.names}") }
 
         val dialog = AlertDialog.Builder(ac)
@@ -378,7 +389,13 @@ object EditorActions {
                             }
                         }
                     }
-                    else -> openStage(ac, pack, sm, stages[which - 2])
+                    2 -> {
+                        confirm(ac, R.string.editor_delete_map_title, R.string.editor_delete_map_msg) {
+                            pack.mc.maps.remove(sm)
+                            save(ac)
+                        }
+                    }
+                    else -> openStage(ac, pack, sm, stages[which - 3])
                 }
             }
             .setNegativeButton(R.string.main_file_cancel, null)
@@ -386,6 +403,158 @@ object EditorActions {
 
         if (!ac.isDestroyed && !ac.isFinishing) {
             dialog.show()
+        }
+    }
+
+    /** Simple yes/no confirmation. */
+    fun confirm(ac: Activity, title: Int, msg: Int, onYes: () -> Unit) {
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(title)
+            .setMessage(msg)
+            .setPositiveButton(R.string.editor_delete) { _, _ -> onYes() }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    // ---------- Resource pickers (stage looks & sound) ----------
+
+    /** Searchable list with optional thumbnails. Index 0 is always "Default". */
+    private fun pickFromList(ac: Activity, title: Int, labels: List<String>, image: ((Int) -> Bitmap?)?, onPick: (Int) -> Unit) {
+        val density = ac.resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val shown = ArrayList(labels.indices.toList())
+
+        val adapter = object : BaseAdapter() {
+            override fun getCount() = shown.size
+            override fun getItem(position: Int): Any = shown[position]
+            override fun getItemId(position: Int) = position.toLong()
+
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+                val row = (convertView as? LinearLayout) ?: LinearLayout(ac).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(pad / 2, pad / 2, pad / 2, pad / 2)
+                    addView(ImageView(ac), LinearLayout.LayoutParams((64 * density).toInt(), (48 * density).toInt()))
+                    addView(TextView(ac).apply { setPadding(pad / 2, 0, 0, 0); textSize = 16f })
+                }
+
+                val idx = shown[position]
+                val iv = row.getChildAt(0) as ImageView
+                val tv = row.getChildAt(1) as TextView
+
+                tv.text = labels[idx]
+
+                val bmp = if (image == null || idx == 0) null else try { image(idx) } catch (_: Exception) { null }
+                iv.setImageBitmap(bmp)
+                iv.visibility = if (image == null) View.GONE else View.VISIBLE
+
+                return row
+            }
+        }
+
+        val search = EditText(ac)
+        search.hint = ac.getString(R.string.editor_search)
+        search.setSingleLine()
+
+        val list = ListView(ac)
+        list.adapter = adapter
+
+        val layout = LinearLayout(ac)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+        layout.addView(search)
+        layout.addView(list, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (400 * density).toInt()))
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(title)
+            .setView(layout)
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val q = s?.toString()?.trim()?.lowercase() ?: ""
+                shown.clear()
+                labels.indices.filterTo(shown) { q.isEmpty() || labels[it].lowercase().contains(q) }
+                adapter.notifyDataSetChanged()
+            }
+        })
+
+        list.setOnItemClickListener { _, _, position, _ ->
+            dialog.dismiss()
+            onPick(shown[position])
+        }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun packPrefix(pack: String): String {
+        return if (pack == Identifier.DEF) "BC" else StaticStore.getPackName(pack)
+    }
+
+    fun bgLabel(ac: Activity, id: Identifier<Background>?): String {
+        return if (id == null) ac.getString(R.string.editor_default) else "${packPrefix(id.pack)} - ${Data.trio(id.id)}"
+    }
+
+    fun musicLabel(ac: Activity, id: Identifier<Music>?): String {
+        return if (id == null) ac.getString(R.string.editor_none) else "${packPrefix(id.pack)} - ${Data.trio(id.id)}"
+    }
+
+    fun castleLabel(ac: Activity, id: Identifier<CastleImg>?): String {
+        if (id == null)
+            return ac.getString(R.string.editor_default)
+
+        val list = CastleList.map()[id.pack]
+        val listName = when {
+            list is CastleList.DefCasList -> "BC ${list.str}"
+            id.pack.length == 8 -> StaticStore.getPackName(id.pack)
+            else -> id.pack
+        }
+
+        return "$listName - ${Data.trio(id.id)}"
+    }
+
+    fun pickBackground(ac: Activity, pack: PackData.UserPack, onPick: (Identifier<Background>?) -> Unit) {
+        val items = ArrayList<Background?>()
+        items.add(null)
+        items.addAll(UserProfile.getBCData().bgs.list.filterNotNull())
+        items.addAll(pack.bgs.list.filterNotNull())
+
+        val labels = items.map { bgLabel(ac, it?.id) }
+
+        pickFromList(ac, R.string.editor_stage_bg, labels, null) { i -> onPick(items[i]?.id) }
+    }
+
+    fun pickMusic(ac: Activity, pack: PackData.UserPack, onPick: (Identifier<Music>?) -> Unit) {
+        val items = ArrayList<Music?>()
+        items.add(null)
+        items.addAll(UserProfile.getBCData().musics.list.filterNotNull())
+        items.addAll(pack.musics.list.filterNotNull())
+
+        val labels = items.map { musicLabel(ac, it?.id) }
+
+        pickFromList(ac, R.string.editor_stage_music, labels, null) { i -> onPick(items[i]?.id) }
+    }
+
+    fun pickCastle(ac: Activity, stage: Stage, onPick: (Identifier<CastleImg>?) -> Unit) {
+        val items = ArrayList<CastleImg?>()
+        items.add(null)
+
+        for (list in CastleList.from(stage))
+            items.addAll(list.list.filterNotNull())
+
+        val labels = items.map { castleLabel(ac, it?.id) }
+
+        pickFromList(ac, R.string.editor_stage_castle, labels, { i -> items[i]?.img?.img?.bimg() as? Bitmap }) { i ->
+            onPick(items[i]?.id)
         }
     }
 
