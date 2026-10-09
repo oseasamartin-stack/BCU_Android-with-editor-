@@ -22,13 +22,17 @@ import com.mandarin.bcu.androidutil.StaticStore
 import com.mandarin.bcu.androidutil.io.AContext
 import com.mandarin.bcu.androidutil.io.DefineItf
 import common.CommonStatic
+import com.mandarin.bcu.androidutil.pack.EditorActions
+import common.battle.data.AtkDataModel
 import common.battle.data.CustomEnemy
 import common.pack.Source
 import common.pack.UserProfile
 import common.util.Data
 import common.util.Data.Proc
 import common.util.unit.Trait
+import common.util.anim.AnimCE
 import common.util.unit.Enemy
+import common.util.unit.EneRand
 
 /**
  * [Editor] Basic stat editor for a custom enemy in an editable (workspace) pack.
@@ -61,9 +65,19 @@ class EnemyEditor : AppCompatActivity() {
     private lateinit var widthField: EditText
     private lateinit var tbaField: EditText
     private lateinit var dropField: EditText
-    private val atkFields = ArrayList<EditText>()
-    private val preFields = ArrayList<EditText>()
-    private val areaBoxes = ArrayList<CheckBox>()
+    // [Editor] One attack in the UI. [model] is null for attacks added on this screen.
+    private inner class AtkRow(val model: AtkDataModel?) {
+        lateinit var view: LinearLayout
+        lateinit var label: TextView
+        lateinit var damage: EditText
+        lateinit var pre: EditText
+        lateinit var area: CheckBox
+        lateinit var ld0: EditText
+        lateinit var ld1: EditText
+    }
+
+    private val atkRows = ArrayList<AtkRow>()
+    private lateinit var atkBox: LinearLayout
 
     // [Editor part 2] Traits and abilities
     private lateinit var procs: Proc
@@ -163,27 +177,26 @@ class EnemyEditor : AppCompatActivity() {
 
         header(root, R.string.editor_section_attacks)
 
-        for (i in ce.atks.indices) {
-            val atk = ce.atks[i]
+        val ldNote = TextView(this)
+        ldNote.text = getString(R.string.editor_ld_note)
+        ldNote.setTextColor(textColor)
+        ldNote.alpha = 0.7f
+        root.addView(ldNote)
 
-            val label = TextView(this)
-            label.text = getString(R.string.editor_attack_n).replace("_", (i + 1).toString())
-            label.setTypeface(null, Typeface.BOLD)
-            label.setTextColor(textColor)
-            label.setPadding(0, dp(12), 0, 0)
-            root.addView(label)
+        atkBox = LinearLayout(this)
+        atkBox.orientation = LinearLayout.VERTICAL
+        root.addView(atkBox)
 
-            atkFields.add(field(root, R.string.editor_damage, atk.atk.toString()))
-            preFields.add(field(root, R.string.editor_pre, atk.pre.toString()))
+        for (atk in ce.atks)
+            addAtkRow(AtkRow(atk))
 
-            val area = CheckBox(this)
-            area.text = getString(R.string.editor_area)
-            area.setTextColor(textColor)
-            area.isChecked = atk.range
-            area.setOnCheckedChangeListener { _, _ -> changed = true }
-            root.addView(area)
-            areaBoxes.add(area)
+        val addAtk = Button(this)
+        addAtk.text = getString(R.string.editor_add_attack)
+        addAtk.setOnClickListener {
+            changed = true
+            addAtkRow(AtkRow(null))
         }
+        root.addView(addAtk)
 
         buildTraits(root)
         buildAbilities(root)
@@ -204,7 +217,125 @@ class EnemyEditor : AppCompatActivity() {
         buttons.addView(save, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(buttons)
 
+        val delete = Button(this)
+        delete.text = getString(R.string.editor_delete_enemy)
+        delete.setOnClickListener { deleteEnemy() }
+        root.addView(delete)
+
         setContentView(scroll)
+    }
+
+    private fun addAtkRow(row: AtkRow) {
+        val m = row.model
+
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.setPadding(dp(12), dp(8), dp(12), dp(8))
+        card.setBackgroundResource(R.drawable.cell_shape)
+
+        val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        lp.setMargins(0, dp(8), 0, dp(8))
+
+        row.view = card
+
+        row.label = TextView(this)
+        row.label.setTypeface(null, Typeface.BOLD)
+        row.label.setTextColor(textColor)
+        card.addView(row.label)
+
+        row.damage = field(card, R.string.editor_damage, (m?.atk ?: 0).toString())
+        row.pre = field(card, R.string.editor_pre, (m?.pre ?: 1).toString())
+
+        row.area = CheckBox(this)
+        row.area.text = getString(R.string.editor_area)
+        row.area.setTextColor(textColor)
+        row.area.isChecked = m?.range ?: true
+        row.area.setOnCheckedChangeListener { _, _ -> changed = true }
+        card.addView(row.area)
+
+        row.ld0 = field(card, R.string.editor_ld0, (m?.ld0 ?: 0).toString(), signed = true)
+        row.ld1 = field(card, R.string.editor_ld1, (m?.ld1 ?: 0).toString(), signed = true)
+
+        val remove = Button(this)
+        remove.text = getString(R.string.editor_remove_attack)
+        remove.setOnClickListener {
+            if (atkRows.size <= 1) {
+                StaticStore.showShortMessage(this, R.string.editor_need_attack)
+                return@setOnClickListener
+            }
+
+            changed = true
+            atkRows.remove(row)
+            atkBox.removeView(card)
+            renumberAttacks()
+        }
+        card.addView(remove)
+
+        atkRows.add(row)
+        atkBox.addView(card, lp)
+        renumberAttacks()
+    }
+
+    private fun renumberAttacks() {
+        for (i in atkRows.indices)
+            atkRows[i].label.text = getString(R.string.editor_attack_n).replace("_", (i + 1).toString())
+    }
+
+    /** Remove this enemy from the pack (and from any of the pack's stages that spawn it). */
+    private fun deleteEnemy() {
+        val pack = UserProfile.getUserPack(enemy.id.pack) ?: return
+
+        fun isThis(line: common.util.stage.SCDef.Line?): Boolean {
+            val id = line?.enemy ?: return false
+            return id.cls != EneRand::class.java && id.pack == enemy.id.pack && id.id == enemy.id.id
+        }
+
+        var used = 0
+        for (sm in pack.mc.maps.list.filterNotNull())
+            for (st in sm.list.list.filterNotNull())
+                if (st.data.datas.any { isThis(it) })
+                    used++
+
+        val msg = if (used == 0)
+            getString(R.string.editor_delete_enemy_msg)
+        else
+            getString(R.string.editor_delete_enemy_used).replace("_", used.toString())
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.editor_delete_enemy_title)
+            .setMessage(msg)
+            .setPositiveButton(R.string.editor_delete) { _, _ ->
+                // Take it out of any stages first so they don't point at a missing enemy
+                for (sm in pack.mc.maps.list.filterNotNull())
+                    for (st in sm.list.list.filterNotNull())
+                        st.data.datas = st.data.datas.filter { !isThis(it) }.toTypedArray()
+
+                pack.enemies.remove(enemy)
+
+                // Delete its animation folder if no other enemy in the pack uses it
+                val anim = enemy.anim as? AnimCE
+                if (anim != null && anim.id.pack == pack.sid &&
+                    pack.enemies.list.filterNotNull().none { (it.anim as? AnimCE)?.id?.toString() == anim.id.toString() }) {
+                    try {
+                        CommonStatic.ctx.getWorkspaceFile(anim.id.getPath()).deleteRecursively()
+                    } catch (e: Exception) {
+                        Log.e("EnemyEditor", "Failed to delete animation", e)
+                    }
+                }
+
+                try {
+                    Source.Workspace.saveWorkspace()
+                } catch (e: Exception) {
+                    Log.e("EnemyEditor", "Failed to save", e)
+                }
+
+                PackManagement.needReload = true
+                changed = false
+                StaticStore.showShortMessage(this, R.string.editor_deleted)
+                finish()
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .show()
     }
 
     private fun header(root: LinearLayout, res: Int) {
@@ -217,7 +348,7 @@ class EnemyEditor : AppCompatActivity() {
         root.addView(h)
     }
 
-    private fun field(root: LinearLayout, label: Int, value: String, number: Boolean = true): EditText {
+    private fun field(root: LinearLayout, label: Int, value: String, number: Boolean = true, signed: Boolean = false): EditText {
         val l = TextView(this)
         l.text = getString(label)
         l.setTextColor(textColor)
@@ -229,7 +360,11 @@ class EnemyEditor : AppCompatActivity() {
         et.setText(value)
         et.setTextColor(textColor)
         et.setSingleLine()
-        et.inputType = if (number) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
+        et.inputType = when {
+            !number -> InputType.TYPE_CLASS_TEXT
+            signed -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
+            else -> InputType.TYPE_CLASS_NUMBER
+        }
         et.addTextChangedListener(watcher)
         root.addView(et)
 
@@ -398,12 +533,15 @@ class EnemyEditor : AppCompatActivity() {
         val tba = readInt(tbaField, 0) ?: return
         val drop = readInt(dropField, 0) ?: return
 
-        val atks = ArrayList<Int>()
-        val pres = ArrayList<Int>()
+        // Attack values: damage, foreswing, area start, area end
+        val atkVals = ArrayList<IntArray>()
 
-        for (i in atkFields.indices) {
-            atks.add(readInt(atkFields[i], 0) ?: return)
-            pres.add(readInt(preFields[i], 0) ?: return)
+        for (row in atkRows) {
+            val dmg = readInt(row.damage, 0) ?: return
+            val pre = readInt(row.pre, 0) ?: return
+            val l0 = readInt(row.ld0, -100000) ?: return
+            val l1 = readInt(row.ld1, -100000) ?: return
+            atkVals.add(intArrayOf(dmg, pre, l0, l1))
         }
 
         val abilityValues = ArrayList<List<Int>>()
@@ -431,11 +569,31 @@ class EnemyEditor : AppCompatActivity() {
         ce.tba = tba
         ce.drop = drop
 
-        for (i in atks.indices) {
-            ce.atks[i].atk = atks[i]
-            ce.atks[i].pre = pres[i]
-            ce.atks[i].range = areaBoxes[i].isChecked
+        // Rebuild the attack list (keeps each existing attack's other settings)
+        val newAtks = ArrayList<AtkDataModel>()
+
+        for (i in atkRows.indices) {
+            val row = atkRows[i]
+            val v = atkVals[i]
+            val adm = row.model ?: AtkDataModel(ce)
+
+            adm.atk = v[0]
+            adm.pre = v[1]
+            adm.range = row.area.isChecked
+
+            // Both 0 = normal attack; otherwise start/end of the hit area
+            if (v[2] == 0 && v[3] == 0) {
+                adm.ld0 = 0
+                adm.ld1 = 0
+            } else {
+                adm.ld0 = minOf(v[2], v[3])
+                adm.ld1 = maxOf(v[2], v[3])
+            }
+
+            newAtks.add(adm)
         }
+
+        ce.atks = newAtks.toTypedArray()
 
         // Traits: replace only the ones this screen manages, keep any others
         for ((trait, box) in traitBoxes) {
