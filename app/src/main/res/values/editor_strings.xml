@@ -345,7 +345,7 @@
     <string name="editor_export_pw_hint">Parent password</string>
     <string name="editor_export_pw_empty">Enter a password, or untick the box</string>
     <string name="editor_export_go">Export</string>
-    <string name="editor_resources">Music &amp; castles</string>
+    <string name="editor_resources">Music, castles &amp; backgrounds</string>
     <string name="editor_import_music">＋ Import music (.ogg)</string>
     <string name="editor_import_castle">＋ Import castle image (.png / .jpg)</string>
     <string name="editor_res_music">Music _ (tap to delete)</string>
@@ -362,4 +362,32 @@
     <string name="editor_music_ok">ready to play</string>
     <string name="editor_music_no_copy">playable copy missing (reopen this list)</string>
     <string name="editor_music_bad_codec">BCU can\'t play this format, delete it</string>
+    <string name="editor_copy_bg">＋ Copy a BC background</string>
+    <string name="editor_res_bg">🖼 Background _ (tap to edit)</string>
+    <string name="editor_bg_sky_top">Sky colour (top)</string>
+    <string name="editor_bg_sky_bottom">Sky colour (bottom)</string>
+    <string name="editor_bg_ground_top">Ground colour (top)</string>
+    <string name="editor_bg_ground_bottom">Ground colour (bottom)</string>
+    <string name="editor_bg_bad_color">Use a colour like #7FC8FF</string>
+    <string name="editor_bg_top">Repeat the top of the sky upward</string>
+    <string name="editor_bg_effect">Weather effect</string>
+    <string name="editor_bg_export_img">Share / save image (use as a template)</string>
+    <string name="editor_bg_replace_img">Replace image…</string>
+    <string name="editor_bg_size_note">Replacement images must be exactly _ pixels, with the same layout as the original, because the game cuts it into parts at fixed spots.</string>
+    <string name="editor_bg_wrong_size">Wrong image size. Paint over the shared original so the size and layout match.</string>
+    <string name="editor_bg_delete">🗑 Delete this background</string>
+    <string name="editor_delete_bg_msg">Stages using this background will switch to the default one. This can\'t be undone.</string>
+    <string-array name="editor_bg_effects">
+        <item>None</item>
+        <item>Stars</item>
+        <item>Rain</item>
+        <item>Bubbles</item>
+        <item>Falling snow</item>
+        <item>Snow</item>
+        <item>Snow and stars</item>
+        <item>Blizzard</item>
+        <item>Shining</item>
+        <item>Balloons</item>
+        <item>Rocks</item>
+    </string-array>
 </resources>
