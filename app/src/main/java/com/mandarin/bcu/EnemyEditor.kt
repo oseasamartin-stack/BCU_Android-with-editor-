@@ -100,6 +100,9 @@ class EnemyEditor : AppCompatActivity() {
     private val traitBoxes = LinkedHashMap<Trait, CheckBox>()
     private val abilities = ArrayList<AbilityRow>()
 
+    // [Units] On/off cat abilities stored as bit flags in ce.abi
+    private val flagBoxes = LinkedHashMap<Int, CheckBox>()
+
     /** One ability: a checkbox, its number fields, and how to write them back. */
     private class AbilityRow(
         val box: CheckBox,
@@ -485,6 +488,9 @@ class EnemyEditor : AppCompatActivity() {
         val defGroup = collapsible(root, R.string.editor_group_defense, false)
         val imuGroup = collapsible(root, R.string.editor_group_immune, false)
 
+        if (isUnit)
+            buildCatAbilities(collapsible(root, R.string.editor_group_cat, true), p)
+
         // Values shown when an ability is off (sensible starting points)
         fun orDef(v: Int, def: Int) = if (v != 0) v else def
 
@@ -661,6 +667,67 @@ class EnemyEditor : AppCompatActivity() {
         ability(imuGroup, R.string.editor_imu_toxic, p.IMUPOIATK.mult > 0, emptyList()) { on, _ -> p.IMUPOIATK.mult = if (on) 100 else 0 }
     }
 
+    /** Cat-only abilities: on/off flags plus a few with a value. */
+    private fun buildCatAbilities(group: LinearLayout, p: Proc) {
+        val flags = listOf(
+            Data.AB_GOOD to R.string.editor_cat_good,
+            Data.AB_RESIST to R.string.editor_cat_resist,
+            Data.AB_RESISTS to R.string.editor_cat_resists,
+            Data.AB_MASSIVE to R.string.editor_cat_massive,
+            Data.AB_MASSIVES to R.string.editor_cat_massives,
+            Data.AB_ONLY to R.string.editor_cat_only,
+            Data.AB_ZKILL to R.string.editor_cat_zkill,
+            Data.AB_WKILL to R.string.editor_cat_wkill,
+            Data.AB_EKILL to R.string.editor_cat_ekill,
+            Data.AB_CKILL to R.string.editor_cat_ckill,
+            Data.AB_BAKILL to R.string.editor_cat_bakill,
+            Data.AB_SKILL to R.string.editor_cat_skill,
+            Data.AB_WAVES to R.string.editor_cat_waves,
+            Data.AB_CSUR to R.string.editor_cat_csur,
+            Data.AB_METALIC to R.string.editor_cat_metal,
+            Data.AB_GLASS to R.string.editor_cat_glass,
+            Data.AB_IMUSW to R.string.editor_cat_imusw
+        )
+
+        for ((flag, label) in flags) {
+            val box = CheckBox(this)
+            box.text = getString(label)
+            box.setTextColor(textColor)
+            box.isChecked = (ce.abi and flag) != 0
+            box.setOnCheckedChangeListener { _, _ -> changed = true }
+            group.addView(box)
+
+            flagBoxes[flag] = box
+        }
+
+        fun orDef(v: Int, def: Int) = if (v != 0) v else def
+
+        ability(group, R.string.editor_cat_metalkill, p.METALKILL.mult > 0,
+            listOf(Spec(R.string.editor_cat_metalkill_pct, orDef(p.METALKILL.mult, 10), 1, 100))) { on, v ->
+            p.METALKILL.mult = if (on) v[0] else 0
+        }
+
+        ability(group, R.string.editor_cat_atkbase, p.ATKBASE.mult > 0,
+            listOf(Spec(R.string.editor_cat_atkbase_pct, orDef(p.ATKBASE.mult, 300), 1))) { on, v ->
+            p.ATKBASE.mult = if (on) v[0] else 0
+        }
+
+        ability(group, R.string.editor_cat_bounty, p.BOUNTY.mult > 0,
+            listOf(Spec(R.string.editor_cat_bounty_pct, orDef(p.BOUNTY.mult, 100), 1))) { on, v ->
+            p.BOUNTY.mult = if (on) v[0] else 0
+        }
+
+        ability(group, R.string.editor_cat_break, p.BREAK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.BREAK.prob, 100), 1, 100))) { on, v ->
+            p.BREAK.prob = if (on) v[0] else 0
+        }
+
+        ability(group, R.string.editor_cat_shieldbreak, p.SHIELDBREAK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.SHIELDBREAK.prob, 100), 1, 100))) { on, v ->
+            p.SHIELDBREAK.prob = if (on) v[0] else 0
+        }
+    }
+
     /** A tappable section title that shows/hides its contents. Returns the contents container. */
     private fun collapsible(root: LinearLayout, title: Int, expanded: Boolean): LinearLayout {
         val head = TextView(this)
@@ -810,6 +877,20 @@ class EnemyEditor : AppCompatActivity() {
         // Abilities: write back and share them across all attacks
         for (i in abilities.indices) {
             abilities[i].apply(abilities[i].box.isChecked, abilityValues[i])
+        }
+
+        // Cat flags: clear the ones this screen manages, then set the ticked ones
+        if (flagBoxes.isNotEmpty()) {
+            var abi = ce.abi
+
+            for ((flag, box) in flagBoxes) {
+                abi = abi and flag.inv()
+
+                if (box.isChecked)
+                    abi = abi or flag
+            }
+
+            ce.abi = abi
         }
 
         ce.common = true
