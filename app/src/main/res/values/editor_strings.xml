@@ -390,4 +390,14 @@
         <item>Balloons</item>
         <item>Rocks</item>
     </string-array>
+    <string name="editor_section_sprites">Sprite &amp; icons</string>
+    <string name="editor_sprites_note">Share an image, paint over it in any drawing app, then replace it. Keep the same size and keep each body part in the same spot, so the animation still lines up. Changes are saved straight away.</string>
+    <string name="editor_img_sprite">Sprite sheet (all body parts)</string>
+    <string name="editor_img_edi">List icon</string>
+    <string name="editor_img_uni">Deploy button icon</string>
+    <string name="editor_img_share">Share / save</string>
+    <string name="editor_img_replace">Replace…</string>
+    <string name="editor_img_size">Size: _ pixels</string>
+    <string name="editor_img_wrong_size">Wrong size. The new image must be exactly the same size as the old one.</string>
+    <string name="editor_img_replaced">Image replaced</string>
 </resources>
