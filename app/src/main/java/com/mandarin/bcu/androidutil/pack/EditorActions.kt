@@ -13,6 +13,7 @@ import android.widget.ListView
 import androidx.core.content.FileProvider
 import com.mandarin.bcu.EnemyEditor
 import com.mandarin.bcu.PackManagement
+import com.mandarin.bcu.StageEditor
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
 import common.battle.data.CustomEnemy
@@ -24,6 +25,8 @@ import common.pack.UserProfile
 import common.util.Data
 import common.util.anim.AnimCE
 import common.util.lang.MultiLangCont
+import common.util.stage.Stage
+import common.util.stage.StageMap
 import common.util.unit.AbEnemy
 import common.util.unit.Enemy
 import kotlinx.coroutines.CoroutineScope
@@ -37,8 +40,21 @@ object EditorActions {
 
     /** Pick a built-in enemy and add an editable copy of it to a workspace pack. */
     fun showAddEnemyDialog(ac: Activity, pack: PackData.UserPack) {
-        val all = UserProfile.getBCData().enemies.list.filterNotNull()
-        val labels = all.map { "${Data.trio(it.id.id)} - ${enemyName(it)}" }
+        pickEnemy(ac, null, R.string.editor_add_enemy) { src -> addEnemyCopy(ac, pack, src) }
+    }
+
+    /**
+     * Searchable enemy picker. Lists [pack]'s own enemies first (if given), then all built-in enemies.
+     */
+    fun pickEnemy(ac: Activity, pack: PackData.UserPack?, title: Int = R.string.editor_pick_enemy, onPick: (Enemy) -> Unit) {
+        val all = ArrayList<Enemy>()
+
+        if (pack != null)
+            all.addAll(pack.enemies.list.filterNotNull())
+
+        all.addAll(UserProfile.getBCData().enemies.list.filterNotNull())
+
+        val labels = all.map { enemyLabel(it.id) }
 
         val shownEnemies = ArrayList(all)
         val shownLabels = ArrayList(labels)
@@ -62,7 +78,7 @@ object EditorActions {
             (400 * ac.resources.displayMetrics.density).toInt()))
 
         val dialog = AlertDialog.Builder(ac)
-            .setTitle(R.string.editor_add_enemy)
+            .setTitle(title)
             .setView(layout)
             .setNegativeButton(R.string.main_file_cancel, null)
             .create()
@@ -89,11 +105,11 @@ object EditorActions {
         })
 
         list.setOnItemClickListener { _, _, position, _ ->
-            val src = shownEnemies[position]
+            val picked = shownEnemies[position]
 
             dialog.dismiss()
 
-            addEnemyCopy(ac, pack, src)
+            onPick(picked)
         }
 
         if (!ac.isDestroyed && !ac.isFinishing) {
@@ -242,6 +258,143 @@ object EditorActions {
         Source.Workspace.saveWorkspace()
 
         return enemy
+    }
+
+    /** "123 - Name" for built-in enemies, "pack - 000 - Name" for pack enemies. */
+    fun enemyLabel(id: Identifier<AbEnemy>?): String {
+        if (id == null)
+            return "?"
+
+        val e = try { id.get() } catch (_: Exception) { null }
+
+        val name = if (e is Enemy) enemyName(e) else ""
+        val num = Data.trio(id.id)
+
+        return if (id.pack == Identifier.DEF) {
+            "$num - $name"
+        } else {
+            "${StaticStore.getPackName(id.pack)} - $num - $name"
+        }
+    }
+
+    // ---------- Stages ----------
+
+    /** Ask for a line of text (used for map / stage names). */
+    private fun askText(ac: Activity, title: Int, initial: String, onOk: (String) -> Unit) {
+        val pad = (16 * ac.resources.displayMetrics.density).toInt()
+
+        val input = EditText(ac)
+        input.setSingleLine()
+        input.setText(initial)
+
+        val layout = LinearLayout(ac)
+        layout.setPadding(pad, pad / 2, pad, 0)
+        layout.addView(input, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(title)
+            .setView(layout)
+            .setPositiveButton(android.R.string.ok) { _, _ -> onOk(input.text.toString().trim()) }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun save(ac: Activity): Boolean {
+        return try {
+            Source.Workspace.saveWorkspace()
+            PackManagement.needReload = true
+            true
+        } catch (e: Exception) {
+            Log.e("EditorActions", "Failed to save", e)
+            StaticStore.showShortMessage(ac, R.string.editor_save_fail)
+            false
+        }
+    }
+
+    /** List the pack's maps, with an option to make a new one. */
+    fun showStageMaps(ac: Activity, pack: PackData.UserPack) {
+        val maps = pack.mc.maps.list.filterNotNull()
+
+        val labels = ArrayList<CharSequence>()
+        labels.add(ac.getString(R.string.editor_new_map))
+        maps.forEach { labels.add("${Data.trio(it.id.id)} - ${it.names}") }
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_edit_stages)
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (which == 0) {
+                    askText(ac, R.string.editor_map_name, "") { name ->
+                        val sm = StageMap(pack.mc.getNextID())
+
+                        if (name.isNotEmpty())
+                            sm.names.put(name)
+
+                        pack.mc.maps.add(sm)
+
+                        if (save(ac))
+                            showMapStages(ac, pack, sm)
+                    }
+                } else {
+                    showMapStages(ac, pack, maps[which - 1])
+                }
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    /** List a map's stages, with options to add a stage or rename the map. */
+    private fun showMapStages(ac: Activity, pack: PackData.UserPack, sm: StageMap) {
+        val stages = sm.list.list.filterNotNull()
+
+        val labels = ArrayList<CharSequence>()
+        labels.add(ac.getString(R.string.editor_new_stage))
+        labels.add(ac.getString(R.string.editor_rename_map))
+        stages.forEach { labels.add("${Data.trio(it.id.id)} - ${it.names}") }
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(sm.names.toString())
+            .setItems(labels.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> {
+                        val st = Stage(sm)
+                        sm.add(st)
+
+                        if (save(ac))
+                            openStage(ac, pack, sm, st)
+                    }
+                    1 -> {
+                        askText(ac, R.string.editor_map_name, sm.names.toString()) { name ->
+                            if (name.isNotEmpty()) {
+                                sm.names.put(name)
+                                save(ac)
+                            }
+                        }
+                    }
+                    else -> openStage(ac, pack, sm, stages[which - 2])
+                }
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun openStage(ac: Activity, pack: PackData.UserPack, sm: StageMap, st: Stage) {
+        val intent = Intent(ac, StageEditor::class.java)
+        intent.putExtra(StageEditor.EXTRA_PACK, pack.sid)
+        intent.putExtra(StageEditor.EXTRA_MAP, sm.id.id)
+        intent.putExtra(StageEditor.EXTRA_STAGE, st.id.id)
+        ac.startActivity(intent)
     }
 
     private fun enemyName(e: Enemy): String {
