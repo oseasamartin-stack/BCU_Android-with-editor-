@@ -16,6 +16,7 @@ import androidx.core.content.FileProvider
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
+import com.mandarin.bcu.androidutil.pack.EditorActions
 import com.mandarin.bcu.androidutil.supports.SingleClick
 import common.pack.PackData
 import common.pack.Source
@@ -24,6 +25,11 @@ import java.io.File
 import java.text.DecimalFormat
 
 class PackManagementAdapter(private val ac: Activity, private val pList: ArrayList<PackData.UserPack>) : ArrayAdapter<PackData.UserPack>(ac, R.layout.ability_layout, pList) {
+    companion object {
+        // [Editor] Menu ID for "Add enemy"
+        const val MENU_ADD_ENEMY = 1001
+    }
+
     class ViewHolder(v: View) {
         val id = v.findViewById<TextView>(R.id.pmanid)!!
         val name = v.findViewById<TextView>(R.id.pmanname)!!
@@ -85,8 +91,15 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
 
         popup.menuInflater.inflate(R.menu.pack_list_option_menu, menu)
 
+        // [Editor] Extra options for editable packs
+        if (isWorkspace)
+            menu.add(0, MENU_ADD_ENEMY, 2, R.string.editor_add_enemy)
+
         popup.setOnMenuItemClickListener {
             when(it.itemId) {
+                MENU_ADD_ENEMY -> {
+                    EditorActions.showAddEnemyDialog(ac, p)
+                }
                 R.id.packremove -> {
                     dialog.setTitle(R.string.pack_manage_remove_sure)
                     dialog.setMessage(R.string.pack_manage_remove_msg)
