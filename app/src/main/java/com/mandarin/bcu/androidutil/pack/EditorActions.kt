@@ -1208,12 +1208,20 @@ object EditorActions {
 
         val musics = pack.musics.list.filterNotNull()
         val castles = pack.castles.list.filterNotNull()
+        val bgs = pack.bgs.list.filterNotNull()
 
         val labels = ArrayList<CharSequence>()
         labels.add(ac.getString(R.string.editor_import_music))
         labels.add(ac.getString(R.string.editor_import_castle))
+        labels.add(ac.getString(R.string.editor_copy_bg))
         musics.forEach { labels.add(musicStatusLabel(ac, pack, it)) }
         castles.forEach { labels.add(ac.getString(R.string.editor_res_castle).replace("_", Data.trio(it.id.id))) }
+        bgs.forEach { labels.add(ac.getString(R.string.editor_res_bg).replace("_", Data.trio(it.id.id))) }
+
+        // Index where each group starts in the list
+        val musicStart = 3
+        val castleStart = musicStart + musics.size
+        val bgStart = castleStart + castles.size
 
         val dialog = AlertDialog.Builder(ac)
             .setTitle(R.string.editor_resources)
@@ -1221,14 +1229,16 @@ object EditorActions {
                 when {
                     which == 0 -> pickFile(ac, "*/*") { uri -> importMusic(ac, pack, uri) }
                     which == 1 -> pickFile(ac, "image/*") { uri -> importCastle(ac, pack, uri) }
-                    which < 2 + musics.size -> {
-                        val m = musics[which - 2]
+                    which == 2 -> pickBCBackground(ac, pack)
+                    which < castleStart -> {
+                        val m = musics[which - musicStart]
                         confirm(ac, R.string.editor_delete_res_title, R.string.editor_delete_music_msg) { deleteMusic(ac, pack, m) }
                     }
-                    else -> {
-                        val c = castles[which - 2 - musics.size]
+                    which < bgStart -> {
+                        val c = castles[which - castleStart]
                         confirm(ac, R.string.editor_delete_res_title, R.string.editor_delete_castle_msg) { deleteCastle(ac, pack, c) }
                     }
+                    else -> showBackgroundEditor(ac, pack, bgs[which - bgStart])
                 }
             }
             .setNegativeButton(R.string.main_file_cancel, null)
@@ -1354,6 +1364,275 @@ object EditorActions {
         }
 
         editor.apply()
+    }
+
+    // ---------- Backgrounds ----------
+
+    private fun bgFile(pack: PackData.UserPack, idx: Int): java.io.File {
+        return CommonStatic.ctx.getWorkspaceFile("./" + pack.sid + "/backgrounds/" + Data.trio(idx) + ".png")
+    }
+
+    /**
+     * Copy a built-in background. Pack backgrounds always use BC's standard background
+     * layout, so only built-in backgrounds that use that same layout can be copied.
+     */
+    private fun pickBCBackground(ac: Activity, pack: PackData.UserPack) {
+        val all = UserProfile.getBCData().bgs.list.filterNotNull().filter { it.ic == 1 }
+
+        val labels = listOf(ac.getString(R.string.main_file_cancel)) + all.map { "BC - " + Data.trio(it.id.id) }
+
+        pickFromList(ac, R.string.editor_copy_bg, labels, { i -> all[i - 1].img?.img?.bimg() as? Bitmap }) { i ->
+            if (i > 0)
+                copyBackground(ac, pack, all[i - 1])
+        }
+    }
+
+    private fun copyBackground(ac: Activity, pack: PackData.UserPack, src: Background) {
+        runImport(ac) {
+            val bmp = src.img?.img?.bimg() as? Bitmap ?: return@runImport R.string.editor_import_fail
+
+            val idx = pack.bgs.nextInd()
+            val file = bgFile(pack, idx)
+
+            file.parentFile?.mkdirs()
+            file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+            // Copies colours, layout, effect and overlay; then point it at the pack's own image
+            val bg = src.copy(Identifier(pack.sid, Background::class.java, idx))
+            bg.img = pack.source.readImage(Source.BasePath.BG.toString(), idx) ?: return@runImport R.string.editor_import_fail
+
+            pack.bgs.set(idx, bg)
+
+            Source.Workspace.saveWorkspace()
+            null
+        }
+    }
+
+    private fun colorToHex(c: IntArray): String {
+        return String.format("#%02X%02X%02X", c[0].coerceIn(0, 255), c[1].coerceIn(0, 255), c[2].coerceIn(0, 255))
+    }
+
+    private fun hexToColor(s: String): IntArray? {
+        val h = s.trim().removePrefix("#")
+
+        if (h.length != 6)
+            return null
+
+        val v = h.toIntOrNull(16) ?: return null
+
+        return intArrayOf((v shr 16) and 0xFF, (v shr 8) and 0xFF, v and 0xFF)
+    }
+
+    /** Edit a pack background: colours, sky repeat, effect, and its image. */
+    private fun showBackgroundEditor(ac: Activity, pack: PackData.UserPack, bg: Background) {
+        val density = ac.resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val scroll = android.widget.ScrollView(ac)
+        val layout = LinearLayout(ac)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+        scroll.addView(layout)
+
+        // Image preview (the whole background sheet)
+        val preview = ImageView(ac)
+        preview.adjustViewBounds = true
+        preview.maxHeight = (160 * density).toInt()
+
+        fun refreshPreview() {
+            val f = bgFile(pack, bg.id.id)
+            preview.setImageBitmap(if (f.exists()) BitmapFactory.decodeFile(f.absolutePath) else null)
+        }
+
+        refreshPreview()
+        layout.addView(preview)
+
+        // Colours: hex fields with a swatch
+        val colorLabels = listOf(R.string.editor_bg_sky_top, R.string.editor_bg_sky_bottom, R.string.editor_bg_ground_top, R.string.editor_bg_ground_bottom)
+        val colorFields = ArrayList<EditText>()
+
+        for (i in 0 until 4) {
+            val t = TextView(ac)
+            t.text = ac.getString(colorLabels[i])
+            t.setPadding(0, pad / 2, 0, 0)
+            layout.addView(t)
+
+            val row = LinearLayout(ac)
+            row.orientation = LinearLayout.HORIZONTAL
+
+            val swatch = View(ac)
+            val et = EditText(ac)
+            et.setSingleLine()
+            et.setText(colorToHex(bg.cs[i]))
+
+            fun paint() {
+                val c = hexToColor(et.text.toString())
+                swatch.setBackgroundColor(if (c == null) android.graphics.Color.TRANSPARENT else android.graphics.Color.rgb(c[0], c[1], c[2]))
+            }
+
+            paint()
+
+            et.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) { paint() }
+            })
+
+            row.addView(swatch, LinearLayout.LayoutParams((36 * density).toInt(), (36 * density).toInt()))
+            row.addView(et, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            layout.addView(row)
+
+            colorFields.add(et)
+        }
+
+        val top = CheckBox(ac)
+        top.text = ac.getString(R.string.editor_bg_top)
+        top.isChecked = bg.top
+        layout.addView(top)
+
+        val effectLabel = TextView(ac)
+        effectLabel.text = ac.getString(R.string.editor_bg_effect)
+        effectLabel.setPadding(0, pad / 2, 0, 0)
+        layout.addView(effectLabel)
+
+        val effects = ac.resources.getStringArray(R.array.editor_bg_effects).toList()
+
+        val effectSpinner = Spinner(ac)
+        effectSpinner.adapter = ArrayAdapter(ac, android.R.layout.simple_spinner_dropdown_item, effects)
+        // Index 0 = none (-1), then effects 0..9
+        effectSpinner.setSelection((bg.effect + 1).coerceIn(0, effects.size - 1))
+        layout.addView(effectSpinner)
+
+        // Image tools
+        val exportImg = android.widget.Button(ac)
+        exportImg.text = ac.getString(R.string.editor_bg_export_img)
+        exportImg.isAllCaps = false
+        exportImg.setOnClickListener {
+            val f = bgFile(pack, bg.id.id)
+
+            try {
+                val uri = FileProvider.getUriForFile(ac, ac.packageName + ".provider", f)
+                val intent = Intent(Intent.ACTION_SEND)
+                intent.type = "image/png"
+                intent.putExtra(Intent.EXTRA_STREAM, uri)
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                ac.startActivity(Intent.createChooser(intent, ac.getString(R.string.editor_bg_export_img)))
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Failed to share background image", e)
+                StaticStore.showShortMessage(ac, R.string.editor_import_fail)
+            }
+        }
+        layout.addView(exportImg)
+
+        val replaceImg = android.widget.Button(ac)
+        replaceImg.text = ac.getString(R.string.editor_bg_replace_img)
+        replaceImg.isAllCaps = false
+        replaceImg.setOnClickListener {
+            pickFile(ac, "image/*") { uri -> replaceBackgroundImage(ac, pack, bg) { refreshPreview() }.invoke(uri) }
+        }
+        layout.addView(replaceImg)
+
+        val sizeNote = TextView(ac)
+        val cur = bgFile(pack, bg.id.id)
+        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(cur.absolutePath, opts)
+        sizeNote.text = ac.getString(R.string.editor_bg_size_note).replace("_", "${opts.outWidth} × ${opts.outHeight}")
+        sizeNote.alpha = 0.7f
+        layout.addView(sizeNote)
+
+        val delete = android.widget.Button(ac)
+        delete.text = ac.getString(R.string.editor_bg_delete)
+        delete.isAllCaps = false
+        layout.addView(delete)
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(ac.getString(R.string.editor_res_bg).replace("_", Data.trio(bg.id.id)).substringBefore(" ("))
+            .setView(scroll)
+            .setPositiveButton(R.string.editor_save, null)
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        delete.setOnClickListener {
+            confirm(ac, R.string.editor_delete_res_title, R.string.editor_delete_bg_msg) {
+                deleteBackground(ac, pack, bg)
+                dialog.dismiss()
+            }
+        }
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val colors = ArrayList<IntArray>()
+
+                for (et in colorFields) {
+                    val c = hexToColor(et.text.toString())
+
+                    if (c == null) {
+                        et.error = ac.getString(R.string.editor_bg_bad_color)
+                        return@setOnClickListener
+                    }
+
+                    colors.add(c)
+                }
+
+                for (i in 0 until 4)
+                    bg.cs[i] = colors[i]
+
+                bg.top = top.isChecked
+                bg.effect = effectSpinner.selectedItemPosition - 1
+
+                if (save(ac))
+                    StaticStore.showShortMessage(ac, R.string.editor_saved)
+
+                dialog.dismiss()
+            }
+        }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    /** Returns a handler that swaps in a new image of exactly the same size. */
+    private fun replaceBackgroundImage(ac: Activity, pack: PackData.UserPack, bg: Background, onDone: () -> Unit): (Uri) -> Unit {
+        return { uri ->
+            val file = bgFile(pack, bg.id.id)
+
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, opts)
+            val w = opts.outWidth
+            val h = opts.outHeight
+
+            runImport(ac) {
+                val bmp = ac.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                    ?: return@runImport R.string.editor_import_not_image
+
+                // The image is cut into parts at fixed positions, so the size must match
+                if (bmp.width != w || bmp.height != h)
+                    return@runImport R.string.editor_bg_wrong_size
+
+                file.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+
+                // Force the background to re-read and re-cut its image
+                bg.unload()
+                bg.img = null
+
+                ac.runOnUiThread { onDone() }
+                null
+            }
+        }
+    }
+
+    private fun deleteBackground(ac: Activity, pack: PackData.UserPack, bg: Background) {
+        // Stages using it go back to the default background
+        for (st in allStages(pack))
+            if (st.bg?.pack == pack.sid && st.bg?.id == bg.id.id)
+                st.bg = null
+
+        pack.bgs.remove(bg)
+        bgFile(pack, bg.id.id).delete()
+
+        if (save(ac))
+            StaticStore.showShortMessage(ac, R.string.editor_deleted)
     }
 
     /** Which audio codec an Ogg file holds, from its first header packet. */
