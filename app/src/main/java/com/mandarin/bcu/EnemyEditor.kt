@@ -25,6 +25,10 @@ import common.CommonStatic
 import com.mandarin.bcu.androidutil.pack.EditorActions
 import common.battle.data.AtkDataModel
 import common.battle.data.CustomEnemy
+import common.battle.data.CustomEntity
+import common.battle.data.CustomUnit
+import common.util.lang.MultiLangData
+import common.util.unit.Form
 import common.pack.Source
 import common.pack.UserProfile
 import common.util.Data
@@ -35,17 +39,27 @@ import common.util.unit.Enemy
 import common.util.unit.EneRand
 
 /**
- * [Editor] Basic stat editor for a custom enemy in an editable (workspace) pack.
- * Opened from Pack Management -> pack menu -> Edit enemies.
+ * [Editor] Stat editor for a custom enemy, or for one form of a custom unit, in an editable (workspace) pack.
+ * Enemies: Pack Management -> pack menu -> Edit enemies.
+ * Units:   Pack Management -> pack menu -> Edit units -> unit -> form (pass EXTRA_UNIT + EXTRA_FORM).
  */
 class EnemyEditor : AppCompatActivity() {
     companion object {
         const val EXTRA_PACK = "editor_pack"
         const val EXTRA_INDEX = "editor_enemy_index"
+        const val EXTRA_UNIT = "editor_unit_index"
+        const val EXTRA_FORM = "editor_form_index"
     }
 
-    private lateinit var enemy: Enemy
-    private lateinit var ce: CustomEnemy
+    // Exactly one of these is set
+    private var enemyOrNull: Enemy? = null
+    private var form: Form? = null
+
+    private val enemy: Enemy get() = enemyOrNull!!
+    private val isUnit get() = form != null
+    private val names: MultiLangData get() = form?.names ?: enemy.names
+
+    private lateinit var ce: CustomEntity
 
     private var changed = false
     private var textColor = 0
@@ -64,7 +78,9 @@ class EnemyEditor : AppCompatActivity() {
     private lateinit var rangeField: EditText
     private lateinit var widthField: EditText
     private lateinit var tbaField: EditText
-    private lateinit var dropField: EditText
+    private var dropField: EditText? = null
+    private var priceField: EditText? = null
+    private var respField: EditText? = null
     // [Editor] One attack in the UI. [model] is null for attacks added on this screen.
     private inner class AtkRow(val model: AtkDataModel?) {
         lateinit var view: LinearLayout
@@ -113,17 +129,34 @@ class EnemyEditor : AppCompatActivity() {
         val index = intent.getIntExtra(EXTRA_INDEX, -1)
 
         val pack = if (packId == null) null else UserProfile.getUserPack(packId)
-        val e = pack?.enemies?.getRaw(index)
-        val data = e?.de
 
-        if (pack == null || !pack.editable || e == null || data !is CustomEnemy) {
-            StaticStore.showShortMessage(this, R.string.editor_enemy_missing)
-            finish()
-            return
+        if (intent.hasExtra(EXTRA_UNIT)) {
+            val u = pack?.units?.getRaw(intent.getIntExtra(EXTRA_UNIT, -1))
+            val fi = intent.getIntExtra(EXTRA_FORM, -1)
+            val f = if (u != null && fi >= 0 && fi < u.forms.size) u.forms[fi] else null
+            val data = f?.du
+
+            if (pack == null || !pack.editable || f == null || data !is CustomUnit) {
+                StaticStore.showShortMessage(this, R.string.editor_enemy_missing)
+                finish()
+                return
+            }
+
+            form = f
+            ce = data
+        } else {
+            val e = pack?.enemies?.getRaw(index)
+            val data = e?.de
+
+            if (pack == null || !pack.editable || e == null || data !is CustomEnemy) {
+                StaticStore.showShortMessage(this, R.string.editor_enemy_missing)
+                finish()
+                return
+            }
+
+            enemyOrNull = e
+            ce = data
         }
-
-        enemy = e
-        ce = data
 
         // Work on a copy of the abilities; only written back on Save
         ce.updateAllProc()
@@ -152,28 +185,40 @@ class EnemyEditor : AppCompatActivity() {
         scroll.addView(root)
 
         val title = TextView(this)
-        title.text = getString(R.string.editor_enemy_title)
+        title.text = getString(if (isUnit) R.string.editor_form_title else R.string.editor_enemy_title)
         title.textSize = 22f
         title.setTypeface(null, Typeface.BOLD)
         title.setTextColor(textColor)
         root.addView(title)
 
         val idText = TextView(this)
-        idText.text = "${enemy.id.pack} - ${StaticStore.trio(enemy.id.id)}"
+        val f = form
+        idText.text = if (f != null)
+            "${f.unit.id.pack} - ${StaticStore.trio(f.unit.id.id)} - " + getString(R.string.editor_form_n).replace("_", (f.fid + 1).toString())
+        else
+            "${enemy.id.pack} - ${StaticStore.trio(enemy.id.id)}"
         idText.setTextColor(textColor)
         idText.alpha = 0.7f
         root.addView(idText)
 
         header(root, R.string.editor_section_basic)
 
-        nameField = field(root, R.string.editor_name, enemy.names.toString(), number = false)
+        nameField = field(root, R.string.editor_name, names.toString(), number = false)
         hpField = field(root, R.string.editor_hp, ce.hp.toString())
         kbField = field(root, R.string.editor_kb, ce.hb.toString())
         speedField = field(root, R.string.editor_speed, ce.speed.toString())
         rangeField = field(root, R.string.editor_range, ce.range.toString())
         widthField = field(root, R.string.editor_width, ce.width.toString())
         tbaField = field(root, R.string.editor_tba, ce.tba.toString())
-        dropField = field(root, R.string.editor_drop, ce.drop.toString())
+        val cu = ce as? CustomUnit
+        val cen = ce as? CustomEnemy
+
+        if (cu != null) {
+            priceField = field(root, R.string.editor_price, cu.price.toString())
+            respField = field(root, R.string.editor_resp, cu.resp.toString())
+        } else if (cen != null) {
+            dropField = field(root, R.string.editor_drop, cen.drop.toString())
+        }
 
         header(root, R.string.editor_section_attacks)
 
@@ -217,10 +262,12 @@ class EnemyEditor : AppCompatActivity() {
         buttons.addView(save, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(buttons)
 
-        val delete = Button(this)
-        delete.text = getString(R.string.editor_delete_enemy)
-        delete.setOnClickListener { deleteEnemy() }
-        root.addView(delete)
+        if (!isUnit) {
+            val delete = Button(this)
+            delete.text = getString(R.string.editor_delete_enemy)
+            delete.setOnClickListener { deleteEnemy() }
+            root.addView(delete)
+        }
 
         setContentView(scroll)
     }
@@ -391,7 +438,7 @@ class EnemyEditor : AppCompatActivity() {
     }
 
     private fun buildTraits(root: LinearLayout) {
-        header(root, R.string.editor_section_traits)
+        header(root, if (isUnit) R.string.editor_section_targets else R.string.editor_section_traits)
 
         val list = listOf(
             Data.TRAIT_RED to R.string.editor_trait_red,
@@ -677,7 +724,13 @@ class EnemyEditor : AppCompatActivity() {
         val range = readInt(rangeField, 0) ?: return
         val width = readInt(widthField, 1) ?: return
         val tba = readInt(tbaField, 0) ?: return
-        val drop = readInt(dropField, 0) ?: return
+        val dropF = dropField
+        val priceF = priceField
+        val respF = respField
+
+        val drop = if (dropF != null) readInt(dropF, 0) ?: return else 0
+        val price = if (priceF != null) readInt(priceF, 0) ?: return else 0
+        val resp = if (respF != null) readInt(respF, 0) ?: return else 0
 
         // Attack values: damage, foreswing, area start, area end
         val atkVals = ArrayList<IntArray>()
@@ -713,7 +766,12 @@ class EnemyEditor : AppCompatActivity() {
         ce.range = range
         ce.width = width
         ce.tba = tba
-        ce.drop = drop
+        (ce as? CustomEnemy)?.drop = drop
+
+        (ce as? CustomUnit)?.let {
+            it.price = price
+            it.resp = resp
+        }
 
         // Rebuild the attack list (keeps each existing attack's other settings)
         val newAtks = ArrayList<AtkDataModel>()
@@ -761,7 +819,7 @@ class EnemyEditor : AppCompatActivity() {
 
         val name = nameField.text.toString().trim()
         if (name.isNotEmpty())
-            enemy.names.put(name)
+            names.put(name)
 
         try {
             Source.Workspace.saveWorkspace()
