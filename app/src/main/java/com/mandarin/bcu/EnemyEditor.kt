@@ -433,30 +433,35 @@ class EnemyEditor : AppCompatActivity() {
 
         val p = procs
 
+        val atkGroup = collapsible(root, R.string.editor_group_attack, true)
+        val statusGroup = collapsible(root, R.string.editor_group_status, false)
+        val defGroup = collapsible(root, R.string.editor_group_defense, false)
+        val imuGroup = collapsible(root, R.string.editor_group_immune, false)
+
         // Values shown when an ability is off (sensible starting points)
         fun orDef(v: Int, def: Int) = if (v != 0) v else def
 
-        ability(root, R.string.editor_ab_kb, p.KB.prob > 0,
+        ability(atkGroup, R.string.editor_ab_kb, p.KB.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.KB.prob, 100), 1, 100))) { on, v ->
             p.KB.prob = if (on) v[0] else 0
             if (!on) { p.KB.dis = 0; p.KB.time = 0 }
         }
 
-        ability(root, R.string.editor_ab_freeze, p.STOP.prob > 0,
+        ability(atkGroup, R.string.editor_ab_freeze, p.STOP.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.STOP.prob, 100), 1, 100),
                 Spec(R.string.editor_duration, orDef(p.STOP.time, 30), 1))) { on, v ->
             p.STOP.prob = if (on) v[0] else 0
             p.STOP.time = if (on) v[1] else 0
         }
 
-        ability(root, R.string.editor_ab_slow, p.SLOW.prob > 0,
+        ability(atkGroup, R.string.editor_ab_slow, p.SLOW.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.SLOW.prob, 100), 1, 100),
                 Spec(R.string.editor_duration, orDef(p.SLOW.time, 60), 1))) { on, v ->
             p.SLOW.prob = if (on) v[0] else 0
             p.SLOW.time = if (on) v[1] else 0
         }
 
-        ability(root, R.string.editor_ab_weaken, p.WEAK.prob > 0,
+        ability(atkGroup, R.string.editor_ab_weaken, p.WEAK.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.WEAK.prob, 100), 1, 100),
                 Spec(R.string.editor_duration, orDef(p.WEAK.time, 60), 1),
                 Spec(R.string.editor_weak_mult, orDef(p.WEAK.mult, 50), 0, 1000))) { on, v ->
@@ -465,20 +470,20 @@ class EnemyEditor : AppCompatActivity() {
             p.WEAK.mult = if (on) v[2] else 0
         }
 
-        ability(root, R.string.editor_ab_crit, p.CRIT.prob > 0,
+        ability(atkGroup, R.string.editor_ab_crit, p.CRIT.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.CRIT.prob, 50), 1, 100))) { on, v ->
             p.CRIT.prob = if (on) v[0] else 0
             if (!on) p.CRIT.mult = 0
         }
 
-        ability(root, R.string.editor_ab_wave, p.WAVE.prob > 0,
+        ability(atkGroup, R.string.editor_ab_wave, p.WAVE.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.WAVE.prob, 100), 1, 100),
                 Spec(R.string.editor_level, orDef(p.WAVE.lv, 1), 1, 20))) { on, v ->
             p.WAVE.prob = if (on) v[0] else 0
             p.WAVE.lv = if (on) v[1] else 0
         }
 
-        ability(root, R.string.editor_ab_surge, p.VOLC.prob > 0,
+        ability(atkGroup, R.string.editor_ab_surge, p.VOLC.prob > 0,
             listOf(Spec(R.string.editor_chance, orDef(p.VOLC.prob, 100), 1, 100),
                 Spec(R.string.editor_surge_min, orDef(p.VOLC.dis_0, 200), 0),
                 Spec(R.string.editor_surge_max, orDef(p.VOLC.dis_1, 400), 0),
@@ -489,11 +494,152 @@ class EnemyEditor : AppCompatActivity() {
             p.VOLC.time = if (on) v[3] * Data.VOLC_ITV else 0
         }
 
-        ability(root, R.string.editor_ab_barrier, p.BARRIER.health > 0,
+        ability(defGroup, R.string.editor_ab_barrier, p.BARRIER.health > 0,
             listOf(Spec(R.string.editor_barrier_hp, orDef(p.BARRIER.health, 10000), 1))) { on, v ->
             p.BARRIER.health = if (on) v[0] else 0
             if (!on) { p.BARRIER.regentime = 0; p.BARRIER.timeout = 0 }
         }
+            // ---- Status effects ----
+        ability(statusGroup, R.string.editor_ab_toxic, p.POIATK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.POIATK.prob, 100), 1, 100),
+                Spec(R.string.editor_toxic_pct, orDef(p.POIATK.mult, 10), 1, 100))) { on, v ->
+            p.POIATK.prob = if (on) v[0] else 0
+            p.POIATK.mult = if (on) v[1] else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_curse, p.CURSE.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.CURSE.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.CURSE.time, 60), 1))) { on, v ->
+            p.CURSE.prob = if (on) v[0] else 0
+            p.CURSE.time = if (on) v[1] else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_seal, p.SEAL.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.SEAL.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.SEAL.time, 60), 1))) { on, v ->
+            p.SEAL.prob = if (on) v[0] else 0
+            p.SEAL.time = if (on) v[1] else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_warp, p.WARP.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.WARP.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.WARP.time, 30), 1),
+                Spec(R.string.editor_warp_min, orDef(p.WARP.dis_0, 300), -10000, 10000),
+                Spec(R.string.editor_warp_max, orDef(p.WARP.dis_1, 300), -10000, 10000))) { on, v ->
+            p.WARP.prob = if (on) v[0] else 0
+            p.WARP.time = if (on) v[1] else 0
+            p.WARP.dis_0 = if (on) minOf(v[2], v[3]) else 0
+            p.WARP.dis_1 = if (on) maxOf(v[2], v[3]) else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_savage, p.SATK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.SATK.prob, 30), 1, 100),
+                Spec(R.string.editor_savage_pct, orDef(p.SATK.mult, 200), 1))) { on, v ->
+            p.SATK.prob = if (on) v[0] else 0
+            p.SATK.mult = if (on) v[1] else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_miniwave, p.MINIWAVE.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.MINIWAVE.prob, 100), 1, 100),
+                Spec(R.string.editor_level, orDef(p.MINIWAVE.lv, 1), 1, 20))) { on, v ->
+            p.MINIWAVE.prob = if (on) v[0] else 0
+            p.MINIWAVE.lv = if (on) v[1] else 0
+            p.MINIWAVE.multi = if (on) orDef(p.MINIWAVE.multi, 20) else 0
+        }
+
+        ability(statusGroup, R.string.editor_ab_minisurge, p.MINIVOLC.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.MINIVOLC.prob, 100), 1, 100),
+                Spec(R.string.editor_surge_min, orDef(p.MINIVOLC.dis_0, 200), 0),
+                Spec(R.string.editor_surge_max, orDef(p.MINIVOLC.dis_1, 400), 0),
+                Spec(R.string.editor_level, orDef(p.MINIVOLC.time / Data.VOLC_ITV, 1), 1, 20))) { on, v ->
+            p.MINIVOLC.prob = if (on) v[0] else 0
+            p.MINIVOLC.dis_0 = if (on) minOf(v[1], v[2]) else 0
+            p.MINIVOLC.dis_1 = if (on) maxOf(v[1], v[2]) else 0
+            p.MINIVOLC.time = if (on) v[3] * Data.VOLC_ITV else 0
+            p.MINIVOLC.mult = if (on) orDef(p.MINIVOLC.mult, 20) else 0
+        }
+
+        // ---- Defense & life ----
+        ability(defGroup, R.string.editor_ab_strong, p.STRONG.health > 0,
+            listOf(Spec(R.string.editor_strong_hp, orDef(p.STRONG.health, 50), 1, 100),
+                Spec(R.string.editor_strong_mult, orDef(p.STRONG.mult, 100), 1))) { on, v ->
+            p.STRONG.health = if (on) v[0] else 0
+            p.STRONG.mult = if (on) v[1] else 0
+        }
+
+        ability(defGroup, R.string.editor_ab_lethal, p.LETHAL.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.LETHAL.prob, 100), 1, 100))) { on, v ->
+            p.LETHAL.prob = if (on) v[0] else 0
+        }
+
+        ability(defGroup, R.string.editor_ab_dodge, p.IMUATK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.IMUATK.prob, 30), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.IMUATK.time, 30), 1))) { on, v ->
+            p.IMUATK.prob = if (on) v[0] else 0
+            p.IMUATK.time = if (on) v[1] else 0
+        }
+
+        ability(defGroup, R.string.editor_ab_shield, p.DEMONSHIELD.hp > 0,
+            listOf(Spec(R.string.editor_shield_hp, orDef(p.DEMONSHIELD.hp, 10000), 1),
+                Spec(R.string.editor_shield_regen, orDef(p.DEMONSHIELD.regen, 50), 0, 100))) { on, v ->
+            p.DEMONSHIELD.hp = if (on) v[0] else 0
+            p.DEMONSHIELD.regen = if (on) v[1] else 0
+        }
+
+        ability(defGroup, R.string.editor_ab_burrow, p.BURROW.count != 0,
+            listOf(Spec(R.string.editor_times, orDef(p.BURROW.count, 1), -1, 100),
+                Spec(R.string.editor_burrow_dis, orDef(p.BURROW.dis, 300), 1))) { on, v ->
+            p.BURROW.count = if (on) (if (v[0] == 0) 1 else v[0]) else 0
+            p.BURROW.dis = if (on) v[1] else 0
+        }
+
+        ability(defGroup, R.string.editor_ab_revive, p.REVIVE.count != 0,
+            listOf(Spec(R.string.editor_times, orDef(p.REVIVE.count, 1), -1, 100),
+                Spec(R.string.editor_revive_time, orDef(p.REVIVE.time, 60), 1),
+                Spec(R.string.editor_revive_hp, orDef(p.REVIVE.health, 100), 1, 100))) { on, v ->
+            p.REVIVE.count = if (on) (if (v[0] == 0) 1 else v[0]) else 0
+            p.REVIVE.time = if (on) v[1] else 0
+            p.REVIVE.health = if (on) v[2] else 0
+        }
+
+        // ---- Immunities (tick = fully immune) ----
+        ability(imuGroup, R.string.editor_imu_kb, p.IMUKB.mult > 0, emptyList()) { on, _ -> p.IMUKB.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_freeze, p.IMUSTOP.mult > 0, emptyList()) { on, _ -> p.IMUSTOP.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_slow, p.IMUSLOW.mult > 0, emptyList()) { on, _ -> p.IMUSLOW.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_weaken, p.IMUWEAK.mult > 0, emptyList()) { on, _ -> p.IMUWEAK.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_wave, p.IMUWAVE.mult > 0, emptyList()) { on, _ -> p.IMUWAVE.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_surge, p.IMUVOLC.mult > 0, emptyList()) { on, _ -> p.IMUVOLC.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_warp, p.IMUWARP.mult > 0, emptyList()) { on, _ -> p.IMUWARP.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_curse, p.IMUCURSE.mult > 0, emptyList()) { on, _ -> p.IMUCURSE.mult = if (on) 100 else 0 }
+        ability(imuGroup, R.string.editor_imu_toxic, p.IMUPOIATK.mult > 0, emptyList()) { on, _ -> p.IMUPOIATK.mult = if (on) 100 else 0 }
+    }
+
+    /** A tappable section title that shows/hides its contents. Returns the contents container. */
+    private fun collapsible(root: LinearLayout, title: Int, expanded: Boolean): LinearLayout {
+        val head = TextView(this)
+        head.textSize = 16f
+        head.setTypeface(null, Typeface.BOLD)
+        head.setTextColor(textColor)
+        head.setPadding(0, dp(14), 0, dp(6))
+        root.addView(head)
+
+        val body = LinearLayout(this)
+        body.orientation = LinearLayout.VERTICAL
+        body.visibility = if (expanded) View.VISIBLE else View.GONE
+        root.addView(body)
+
+        fun refresh() {
+            head.text = (if (body.visibility == View.VISIBLE) "▾  " else "▸  ") + getString(title)
+        }
+
+        refresh()
+
+        head.setOnClickListener {
+            body.visibility = if (body.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            refresh()
+        }
+
+        return body
     }
 
     private class Spec(val label: Int, val value: Int, val min: Int, val max: Int = Int.MAX_VALUE)
@@ -511,7 +657,7 @@ class EnemyEditor : AppCompatActivity() {
         group.setPadding(dp(32), 0, 0, dp(4))
         root.addView(group)
 
-        val fields = specs.map { field(group, it.label, it.value.toString()) }
+        val fields = specs.map { field(group, it.label, it.value.toString(), signed = it.min < 0) }
 
         group.visibility = if (enabled) View.VISIBLE else View.GONE
 
