@@ -32,6 +32,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
         const val MENU_EXPORT = 1003
         const val MENU_STAGES = 1004
         const val MENU_UNITS = 1005
+        const val MENU_SETTINGS = 1006
     }
 
     class ViewHolder(v: View) {
@@ -97,6 +98,7 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
 
         // [Editor] Extra options for editable packs
         if (isWorkspace) {
+            menu.add(0, MENU_SETTINGS, 2, R.string.editor_pack_settings)
             menu.add(0, MENU_ADD_ENEMY, 2, R.string.editor_add_enemy)
             menu.add(0, MENU_EDIT_ENEMIES, 3, R.string.editor_edit_enemies)
             menu.add(0, MENU_UNITS, 4, R.string.editor_edit_units)
@@ -111,6 +113,9 @@ class PackManagementAdapter(private val ac: Activity, private val pList: ArrayLi
                 }
                 MENU_EDIT_ENEMIES -> {
                     EditorActions.showEditEnemiesDialog(ac, p)
+                }
+                MENU_SETTINGS -> {
+                    EditorActions.showPackSettings(ac, p)
                 }
                 MENU_UNITS -> {
                     EditorActions.showUnits(ac, p)
