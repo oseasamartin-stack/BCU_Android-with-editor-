@@ -25,6 +25,7 @@ import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
 import common.battle.data.CustomEnemy
 import common.battle.data.CustomUnit
+import common.battle.data.PCoin
 import common.CommonStatic
 import common.pack.Identifier
 import common.pack.PackData
@@ -616,6 +617,13 @@ object EditorActions {
         for (f in u.forms)
             labels.add(ac.getString(R.string.editor_edit_form).replace("_", "${f.fid + 1}: ${formName(f)}"))
 
+        // Extra options after the forms, in this order
+        val addFormIdx = u.forms.size
+        val removeFormIdx = u.forms.size + 1
+        val settingsIdx = u.forms.size + 2
+
+        labels.add(ac.getString(R.string.editor_add_form).replace("_", u.forms.size.toString()))
+        labels.add(ac.getString(R.string.editor_remove_form))
         labels.add(ac.getString(R.string.editor_unit_settings))
         labels.add(ac.getString(R.string.editor_delete_unit))
 
@@ -630,7 +638,21 @@ object EditorActions {
                         intent.putExtra(EnemyEditor.EXTRA_FORM, which)
                         ac.startActivity(intent)
                     }
-                    which == u.forms.size -> showUnitSettings(ac, u)
+                    which == addFormIdx -> {
+                        if (u.forms.size >= 4)
+                            StaticStore.showShortMessage(ac, R.string.editor_max_forms)
+                        else
+                            addForm(ac, pack, u)
+                    }
+                    which == removeFormIdx -> {
+                        if (u.forms.size <= 1)
+                            StaticStore.showShortMessage(ac, R.string.editor_need_form)
+                        else
+                            confirm(ac, R.string.editor_remove_form_title, R.string.editor_remove_form_msg) {
+                                removeLastForm(ac, pack, u)
+                            }
+                    }
+                    which == settingsIdx -> showUnitSettings(ac, u)
                     else -> confirm(ac, R.string.editor_delete_unit_title, R.string.editor_delete_unit_msg) {
                         deleteUnit(ac, pack, u)
                     }
@@ -790,6 +812,93 @@ object EditorActions {
         Source.Workspace.saveWorkspace()
 
         return u
+    }
+
+    /** Add a new form copied from the current last form (animation, stats and talents). */
+    private fun addForm(ac: Activity, pack: PackData.UserPack, u: BCUnit) {
+        val progress = AlertDialog.Builder(ac)
+            .setMessage(R.string.editor_copying_form)
+            .setCancelable(false)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            progress.show()
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val ok = try {
+                val last = u.forms.last()
+                val i = u.forms.size
+
+                last.anim.check()
+
+                val rl = Source.ResourceLocation(pack.sid, "unit_" + Data.trio(u.id.id) + "_" + i, Source.BasePath.ANIM)
+                Source.Workspace.validate(rl)
+
+                val anim = AnimCE(rl, last.anim)
+
+                val cu = CustomUnit()
+                cu.importData(last.du)
+
+                // Copy talents exactly. importData() re-converts talent data that is
+                // already converted, so rebuild the talent list from the source as-is.
+                val srcCoin = (last.du as? CustomUnit)?.pcoin
+
+                if (srcCoin != null) {
+                    val pc = PCoin(cu)
+                    pc.max = srcCoin.max?.clone()
+                    srcCoin.info.forEach { pc.info.add(it.clone()) }
+                    pc.trait.addAll(srcCoin.trait)
+                    pc.update()
+                } else {
+                    cu.pcoin = null
+                }
+
+                val name = formName(last)
+                val form = Form(u, i, if (name.isBlank()) "Form ${i + 1}" else "$name+", anim, cu)
+
+                u.forms = u.forms + form
+
+                Source.Workspace.saveWorkspace()
+                true
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Failed to add form", e)
+                false
+            }
+
+            ac.runOnUiThread {
+                if (progress.isShowing)
+                    progress.dismiss()
+
+                if (ok) {
+                    PackManagement.needReload = true
+                    StaticStore.showShortMessage(ac, R.string.editor_form_added)
+                } else {
+                    StaticStore.showShortMessage(ac, R.string.editor_save_fail)
+                }
+            }
+        }
+    }
+
+    private fun removeLastForm(ac: Activity, pack: PackData.UserPack, u: BCUnit) {
+        val last = u.forms.last()
+
+        u.forms = u.forms.sliceArray(0 until u.forms.size - 1)
+
+        // Delete its animation folder unless another form still uses it
+        val anim = last.anim as? AnimCE
+
+        if (anim != null && anim.id.pack == pack.sid &&
+            u.forms.none { (it.anim as? AnimCE)?.id?.toString() == anim.id.toString() }) {
+            try {
+                CommonStatic.ctx.getWorkspaceFile(anim.id.getPath()).deleteRecursively()
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Failed to delete form animation", e)
+            }
+        }
+
+        if (save(ac))
+            StaticStore.showShortMessage(ac, R.string.editor_deleted)
     }
 
     private fun deleteUnit(ac: Activity, pack: PackData.UserPack, u: BCUnit) {
