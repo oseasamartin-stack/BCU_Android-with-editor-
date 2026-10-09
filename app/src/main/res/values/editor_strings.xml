@@ -348,7 +348,7 @@
     <string name="editor_resources">Music &amp; castles</string>
     <string name="editor_import_music">＋ Import music (.ogg)</string>
     <string name="editor_import_castle">＋ Import castle image (.png / .jpg)</string>
-    <string name="editor_res_music">🎵 Music _ (tap to delete)</string>
+    <string name="editor_res_music">Music _ (tap to delete)</string>
     <string name="editor_res_castle">🏰 Castle _ (tap to delete)</string>
     <string name="editor_importing">Importing…</string>
     <string name="editor_imported">Imported. Reload packs to use it.</string>
@@ -358,4 +358,8 @@
     <string name="editor_delete_res_title">Delete?</string>
     <string name="editor_delete_music_msg">Stages using this music will switch to no music. This can\'t be undone.</string>
     <string name="editor_delete_castle_msg">Stages using this castle will switch to the default castle. This can\'t be undone.</string>
+    <string name="editor_import_not_vorbis">This .ogg uses a format BCU can\'t play (only Ogg Vorbis works). Convert it to Ogg Vorbis first.</string>
+    <string name="editor_music_ok">ready to play</string>
+    <string name="editor_music_no_copy">playable copy missing (reopen this list)</string>
+    <string name="editor_music_bad_codec">BCU can\'t play this format, delete it</string>
 </resources>
