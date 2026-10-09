@@ -179,4 +179,27 @@
     <string name="editor_imu_warp">Immune to warp</string>
     <string name="editor_imu_curse">Immune to curse</string>
     <string name="editor_imu_toxic">Immune to toxic</string>
+    <string name="editor_form_title">Edit Unit Form</string>
+    <string name="editor_form_n">Form _</string>
+    <string name="editor_price">Cost (raw value; the in-game cost is usually 1.5× this)</string>
+    <string name="editor_resp">Cooldown (frames, 30 = 1 second)</string>
+    <string name="editor_section_targets">Target traits (strong against / effective on)</string>
+    <string name="editor_edit_units">Edit units</string>
+    <string name="editor_add_unit">＋ Add unit (copy of BC cat)</string>
+    <string name="editor_add_unit_fail">Failed to add unit</string>
+    <string name="editor_copying_unit">Copying cat (all forms)…</string>
+    <string name="editor_edit_form">Edit form _</string>
+    <string name="editor_unit_settings">⚙ Unit settings (rarity, levels)</string>
+    <string name="editor_delete_unit">🗑 Delete this unit</string>
+    <string name="editor_delete_unit_title">Delete unit?</string>
+    <string name="editor_delete_unit_msg">This unit, all its forms and their animations will be removed from the pack. This can\'t be undone.</string>
+    <string name="editor_rarity">Rarity</string>
+    <string name="editor_rar_normal_short">Normal</string>
+    <string name="editor_rar_special_short">Special</string>
+    <string name="editor_rar_rare_short">Rare</string>
+    <string name="editor_rar_super_short">Super Rare</string>
+    <string name="editor_rar_uber_short">Uber Rare</string>
+    <string name="editor_rar_legend_short">Legend Rare</string>
+    <string name="editor_max_lv">Max level</string>
+    <string name="editor_max_plus">Max plus level</string>
 </resources>
