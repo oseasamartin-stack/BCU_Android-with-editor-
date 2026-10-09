@@ -141,4 +141,42 @@
     <string name="editor_delete_enemy_title">Delete enemy?</string>
     <string name="editor_delete_enemy_msg">This enemy and its animation will be removed from the pack. This can\'t be undone.</string>
     <string name="editor_delete_enemy_used">This enemy is used in _ of your stages. Deleting it also removes it from those stages. This can\'t be undone.</string>
+    <string name="editor_group_attack">Attack effects</string>
+    <string name="editor_group_status">More attack effects</string>
+    <string name="editor_group_defense">Defense &amp; life</string>
+    <string name="editor_group_immune">Immunities</string>
+    <string name="editor_ab_toxic">Toxic</string>
+    <string name="editor_toxic_pct">Damage (% of target\'s max HP)</string>
+    <string name="editor_ab_curse">Curse</string>
+    <string name="editor_ab_seal">Seal</string>
+    <string name="editor_ab_warp">Warp</string>
+    <string name="editor_warp_min">Warp distance min (negative = pull forward)</string>
+    <string name="editor_warp_max">Warp distance max</string>
+    <string name="editor_ab_savage">Savage blow</string>
+    <string name="editor_savage_pct">Extra damage (%)</string>
+    <string name="editor_ab_miniwave">Mini-wave</string>
+    <string name="editor_ab_minisurge">Mini-surge</string>
+    <string name="editor_ab_strong">Strengthen</string>
+    <string name="editor_strong_hp">When own HP is at or below (%)</string>
+    <string name="editor_strong_mult">Attack increase (%)</string>
+    <string name="editor_ab_lethal">Survive a lethal strike</string>
+    <string name="editor_ab_dodge">Dodge attacks</string>
+    <string name="editor_ab_shield">Aku shield</string>
+    <string name="editor_shield_hp">Shield HP</string>
+    <string name="editor_shield_regen">Shield regen after knockback (%)</string>
+    <string name="editor_ab_burrow">Burrow</string>
+    <string name="editor_burrow_dis">Burrow distance</string>
+    <string name="editor_ab_revive">Revive</string>
+    <string name="editor_times">Times (-1 = unlimited)</string>
+    <string name="editor_revive_time">Time before reviving (frames)</string>
+    <string name="editor_revive_hp">Revives with HP (%)</string>
+    <string name="editor_imu_kb">Immune to knockback</string>
+    <string name="editor_imu_freeze">Immune to freeze</string>
+    <string name="editor_imu_slow">Immune to slow</string>
+    <string name="editor_imu_weaken">Immune to weaken</string>
+    <string name="editor_imu_wave">Immune to waves</string>
+    <string name="editor_imu_surge">Immune to surges</string>
+    <string name="editor_imu_warp">Immune to warp</string>
+    <string name="editor_imu_curse">Immune to curse</string>
+    <string name="editor_imu_toxic">Immune to toxic</string>
 </resources>
