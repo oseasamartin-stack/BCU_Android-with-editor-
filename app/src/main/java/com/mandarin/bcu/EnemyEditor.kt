@@ -7,6 +7,7 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
@@ -24,6 +25,9 @@ import common.CommonStatic
 import common.battle.data.CustomEnemy
 import common.pack.Source
 import common.pack.UserProfile
+import common.util.Data
+import common.util.Data.Proc
+import common.util.unit.Trait
 import common.util.unit.Enemy
 
 /**
@@ -61,6 +65,20 @@ class EnemyEditor : AppCompatActivity() {
     private val preFields = ArrayList<EditText>()
     private val areaBoxes = ArrayList<CheckBox>()
 
+    // [Editor part 2] Traits and abilities
+    private lateinit var procs: Proc
+    private val traitBoxes = LinkedHashMap<Trait, CheckBox>()
+    private val abilities = ArrayList<AbilityRow>()
+
+    /** One ability: a checkbox, its number fields, and how to write them back. */
+    private class AbilityRow(
+        val box: CheckBox,
+        val fields: List<EditText>,
+        val mins: List<Int>,
+        val maxs: List<Int>,
+        val apply: (Boolean, List<Int>) -> Unit
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -92,6 +110,10 @@ class EnemyEditor : AppCompatActivity() {
 
         enemy = e
         ce = data
+
+        // Work on a copy of the abilities; only written back on Save
+        ce.updateAllProc()
+        procs = ce.allProc.clone()
 
         textColor = StaticStore.getAttributeColor(this, R.attr.TextPrimary)
 
@@ -163,6 +185,9 @@ class EnemyEditor : AppCompatActivity() {
             areaBoxes.add(area)
         }
 
+        buildTraits(root)
+        buildAbilities(root)
+
         val buttons = LinearLayout(this)
         buttons.orientation = LinearLayout.HORIZONTAL
         buttons.setPadding(0, dp(24), 0, 0)
@@ -212,7 +237,7 @@ class EnemyEditor : AppCompatActivity() {
     }
 
     /** Reads a whole number from a field; shows an error and returns null if invalid. */
-    private fun readInt(et: EditText, min: Int): Int? {
+    private fun readInt(et: EditText, min: Int, max: Int = Int.MAX_VALUE): Int? {
         val v = et.text.toString().trim().toIntOrNull()
 
         if (v == null || v < min) {
@@ -221,7 +246,146 @@ class EnemyEditor : AppCompatActivity() {
             return null
         }
 
+        if (v > max) {
+            et.error = getString(R.string.editor_invalid_max).replace("_", max.toString())
+            et.requestFocus()
+            return null
+        }
+
         return v
+    }
+
+    private fun buildTraits(root: LinearLayout) {
+        header(root, R.string.editor_section_traits)
+
+        val list = listOf(
+            Data.TRAIT_RED to R.string.editor_trait_red,
+            Data.TRAIT_FLOAT to R.string.editor_trait_float,
+            Data.TRAIT_BLACK to R.string.editor_trait_black,
+            Data.TRAIT_METAL to R.string.editor_trait_metal,
+            Data.TRAIT_ANGEL to R.string.editor_trait_angel,
+            Data.TRAIT_ALIEN to R.string.editor_trait_alien,
+            Data.TRAIT_ZOMBIE to R.string.editor_trait_zombie,
+            Data.TRAIT_DEMON to R.string.editor_trait_aku,
+            Data.TRAIT_RELIC to R.string.editor_trait_relic,
+            Data.TRAIT_WHITE to R.string.editor_trait_white
+        )
+
+        val bcTraits = UserProfile.getBCData().traits
+
+        for ((id, label) in list) {
+            val trait = bcTraits.get(id.toInt()) ?: continue
+
+            val box = CheckBox(this)
+            box.text = getString(label)
+            box.setTextColor(textColor)
+            box.isChecked = ce.traits.contains(trait)
+            box.setOnCheckedChangeListener { _, _ -> changed = true }
+            root.addView(box)
+
+            traitBoxes[trait] = box
+        }
+    }
+
+    private fun buildAbilities(root: LinearLayout) {
+        header(root, R.string.editor_section_abilities)
+
+        val note = TextView(this)
+        note.text = getString(R.string.editor_abilities_note)
+        note.setTextColor(textColor)
+        note.alpha = 0.7f
+        root.addView(note)
+
+        val p = procs
+
+        // Values shown when an ability is off (sensible starting points)
+        fun orDef(v: Int, def: Int) = if (v != 0) v else def
+
+        ability(root, R.string.editor_ab_kb, p.KB.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.KB.prob, 100), 1, 100))) { on, v ->
+            p.KB.prob = if (on) v[0] else 0
+            if (!on) { p.KB.dis = 0; p.KB.time = 0 }
+        }
+
+        ability(root, R.string.editor_ab_freeze, p.STOP.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.STOP.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.STOP.time, 30), 1))) { on, v ->
+            p.STOP.prob = if (on) v[0] else 0
+            p.STOP.time = if (on) v[1] else 0
+        }
+
+        ability(root, R.string.editor_ab_slow, p.SLOW.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.SLOW.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.SLOW.time, 60), 1))) { on, v ->
+            p.SLOW.prob = if (on) v[0] else 0
+            p.SLOW.time = if (on) v[1] else 0
+        }
+
+        ability(root, R.string.editor_ab_weaken, p.WEAK.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.WEAK.prob, 100), 1, 100),
+                Spec(R.string.editor_duration, orDef(p.WEAK.time, 60), 1),
+                Spec(R.string.editor_weak_mult, orDef(p.WEAK.mult, 50), 0, 1000))) { on, v ->
+            p.WEAK.prob = if (on) v[0] else 0
+            p.WEAK.time = if (on) v[1] else 0
+            p.WEAK.mult = if (on) v[2] else 0
+        }
+
+        ability(root, R.string.editor_ab_crit, p.CRIT.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.CRIT.prob, 50), 1, 100))) { on, v ->
+            p.CRIT.prob = if (on) v[0] else 0
+            if (!on) p.CRIT.mult = 0
+        }
+
+        ability(root, R.string.editor_ab_wave, p.WAVE.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.WAVE.prob, 100), 1, 100),
+                Spec(R.string.editor_level, orDef(p.WAVE.lv, 1), 1, 20))) { on, v ->
+            p.WAVE.prob = if (on) v[0] else 0
+            p.WAVE.lv = if (on) v[1] else 0
+        }
+
+        ability(root, R.string.editor_ab_surge, p.VOLC.prob > 0,
+            listOf(Spec(R.string.editor_chance, orDef(p.VOLC.prob, 100), 1, 100),
+                Spec(R.string.editor_surge_min, orDef(p.VOLC.dis_0, 200), 0),
+                Spec(R.string.editor_surge_max, orDef(p.VOLC.dis_1, 400), 0),
+                Spec(R.string.editor_level, orDef(p.VOLC.time / Data.VOLC_ITV, 1), 1, 20))) { on, v ->
+            p.VOLC.prob = if (on) v[0] else 0
+            p.VOLC.dis_0 = if (on) minOf(v[1], v[2]) else 0
+            p.VOLC.dis_1 = if (on) maxOf(v[1], v[2]) else 0
+            p.VOLC.time = if (on) v[3] * Data.VOLC_ITV else 0
+        }
+
+        ability(root, R.string.editor_ab_barrier, p.BARRIER.health > 0,
+            listOf(Spec(R.string.editor_barrier_hp, orDef(p.BARRIER.health, 10000), 1))) { on, v ->
+            p.BARRIER.health = if (on) v[0] else 0
+            if (!on) { p.BARRIER.regentime = 0; p.BARRIER.timeout = 0 }
+        }
+    }
+
+    private class Spec(val label: Int, val value: Int, val min: Int, val max: Int = Int.MAX_VALUE)
+
+    private fun ability(root: LinearLayout, title: Int, enabled: Boolean, specs: List<Spec>, apply: (Boolean, List<Int>) -> Unit) {
+        val box = CheckBox(this)
+        box.text = getString(title)
+        box.setTextColor(textColor)
+        box.setTypeface(null, Typeface.BOLD)
+        box.isChecked = enabled
+        root.addView(box)
+
+        val group = LinearLayout(this)
+        group.orientation = LinearLayout.VERTICAL
+        group.setPadding(dp(32), 0, 0, dp(4))
+        root.addView(group)
+
+        val fields = specs.map { field(group, it.label, it.value.toString()) }
+
+        group.visibility = if (enabled) View.VISIBLE else View.GONE
+
+        box.setOnCheckedChangeListener { _, checked ->
+            changed = true
+            group.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+
+        abilities.add(AbilityRow(box, fields, specs.map { it.min }, specs.map { it.max }, apply))
     }
 
     private fun save() {
@@ -242,6 +406,23 @@ class EnemyEditor : AppCompatActivity() {
             pres.add(readInt(preFields[i], 0) ?: return)
         }
 
+        val abilityValues = ArrayList<List<Int>>()
+
+        for (row in abilities) {
+            if (!row.box.isChecked) {
+                abilityValues.add(emptyList())
+                continue
+            }
+
+            val vals = ArrayList<Int>()
+
+            for (j in row.fields.indices) {
+                vals.add(readInt(row.fields[j], row.mins[j], row.maxs[j]) ?: return)
+            }
+
+            abilityValues.add(vals)
+        }
+
         ce.hp = hp
         ce.hb = kb
         ce.speed = speed
@@ -255,6 +436,22 @@ class EnemyEditor : AppCompatActivity() {
             ce.atks[i].pre = pres[i]
             ce.atks[i].range = areaBoxes[i].isChecked
         }
+
+        // Traits: replace only the ones this screen manages, keep any others
+        for ((trait, box) in traitBoxes) {
+            ce.traits.remove(trait)
+
+            if (box.isChecked)
+                ce.traits.add(trait)
+        }
+
+        // Abilities: write back and share them across all attacks
+        for (i in abilities.indices) {
+            abilities[i].apply(abilities[i].box.isChecked, abilityValues[i])
+        }
+
+        ce.common = true
+        ce.rep.proc = procs
 
         ce.updateAllProc()
 
