@@ -39,4 +39,33 @@
     <string name="editor_discard_title">Discard changes?</string>
     <string name="editor_discard_msg">Your changes to this enemy haven\'t been saved.</string>
     <string name="editor_discard">Discard</string>
+    <string name="editor_invalid_max">Must be _ or less</string>
+    <string name="editor_section_traits">Traits</string>
+    <string name="editor_trait_red">Red</string>
+    <string name="editor_trait_float">Floating</string>
+    <string name="editor_trait_black">Black</string>
+    <string name="editor_trait_metal">Metal</string>
+    <string name="editor_trait_angel">Angel</string>
+    <string name="editor_trait_alien">Alien</string>
+    <string name="editor_trait_zombie">Zombie</string>
+    <string name="editor_trait_aku">Aku</string>
+    <string name="editor_trait_relic">Relic</string>
+    <string name="editor_trait_white">White (Traitless)</string>
+    <string name="editor_section_abilities">Abilities</string>
+    <string name="editor_abilities_note">Abilities apply to every attack of this enemy.</string>
+    <string name="editor_ab_kb">Knockback</string>
+    <string name="editor_ab_freeze">Freeze</string>
+    <string name="editor_ab_slow">Slow</string>
+    <string name="editor_ab_weaken">Weaken</string>
+    <string name="editor_ab_crit">Critical hit</string>
+    <string name="editor_ab_wave">Wave attack</string>
+    <string name="editor_ab_surge">Surge attack</string>
+    <string name="editor_ab_barrier">Barrier</string>
+    <string name="editor_chance">Chance (%)</string>
+    <string name="editor_duration">Duration (frames, 30 = 1 second)</string>
+    <string name="editor_level">Level</string>
+    <string name="editor_weak_mult">Target\'s attack becomes (%)</string>
+    <string name="editor_surge_min">Surge range start</string>
+    <string name="editor_surge_max">Surge range end</string>
+    <string name="editor_barrier_hp">Barrier HP</string>
 </resources>
