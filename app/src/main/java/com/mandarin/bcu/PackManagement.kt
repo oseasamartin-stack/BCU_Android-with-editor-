@@ -15,7 +15,10 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.View
 import android.view.Window
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -37,6 +40,7 @@ import com.mandarin.bcu.androidutil.supports.LeakCanaryManager
 import com.mandarin.bcu.androidutil.supports.SingleClick
 import common.CommonStatic
 import common.pack.PackData
+import common.pack.Source
 import common.pack.UserProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -196,12 +200,29 @@ class PackManagement : AppCompatActivity() {
             //Load UI
             more.setOnClickListener(object : SingleClick() {
                 override fun onSingleClick(v: View?) {
-                    val intent = Intent(Intent.ACTION_GET_CONTENT)
-                    intent.addCategory(Intent.CATEGORY_DEFAULT)
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    intent.type = "*/*"
+                    // [Editor] Import an existing pack, or create a new editable one
+                    val popup = PopupMenu(this@PackManagement, more)
 
-                    resultLauncher.launch(Intent.createChooser(intent, "Choose Directory"))
+                    popup.menu.add(0, 0, 0, R.string.editor_pack_import)
+                    popup.menu.add(0, 1, 1, R.string.editor_pack_create)
+
+                    popup.setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            0 -> {
+                                val intent = Intent(Intent.ACTION_GET_CONTENT)
+                                intent.addCategory(Intent.CATEGORY_DEFAULT)
+                                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                intent.type = "*/*"
+
+                                resultLauncher.launch(Intent.createChooser(intent, "Choose Directory"))
+                            }
+                            1 -> showCreatePackDialog(list)
+                        }
+
+                        true
+                    }
+
+                    popup.show()
                 }
             })
 
@@ -492,6 +513,88 @@ class PackManagement : AppCompatActivity() {
             if(PackConflict.conflicts.isNotEmpty()) {
                 StaticStore.showShortSnack(findViewById(R.id.pmanlayout), R.string.pack_manage_warn)
             }
+        }
+    }
+
+    // [Editor] Ask for a name and author, then create an empty workspace pack
+    private fun showCreatePackDialog(list: ListView) {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+
+        val nameInput = EditText(this)
+        nameInput.hint = getString(R.string.editor_pack_name)
+        nameInput.setSingleLine()
+
+        val authorInput = EditText(this)
+        authorInput.hint = getString(R.string.editor_pack_author)
+        authorInput.setSingleLine()
+
+        layout.addView(nameInput)
+        layout.addView(authorInput)
+
+        val dialog = AlertDialog.Builder(this)
+
+        dialog.setTitle(R.string.editor_pack_create)
+        dialog.setView(layout)
+
+        dialog.setPositiveButton(R.string.editor_create) { _, _ ->
+            createPack(nameInput.text.toString().trim(), authorInput.text.toString().trim(), list)
+        }
+
+        dialog.setNegativeButton(R.string.main_file_cancel, null)
+
+        if (!isDestroyed && !isFinishing) {
+            dialog.show()
+        }
+    }
+
+    // [Editor] Same steps the PC version uses: random ID -> initJsonPack -> save workspace
+    private fun createPack(name: String, author: String, list: ListView) {
+        lifecycleScope.launch {
+            val pack: PackData.UserPack? = withContext(Dispatchers.IO) {
+                try {
+                    var id = Source.Workspace.generatePackID()
+
+                    while (UserProfile.getUserPack(id) != null || CommonStatic.ctx.getWorkspaceFile("./$id").exists()) {
+                        id = Source.Workspace.generatePackID()
+                    }
+
+                    val p = UserProfile.initJsonPack(id)
+
+                    if (p != null) {
+                        if (name.isNotEmpty())
+                            p.desc.names.put(name)
+
+                        if (author.isNotEmpty())
+                            p.desc.author = author
+
+                        UserProfile.profile().packlist.add(p)
+
+                        Source.Workspace.saveWorkspace()
+                    }
+
+                    p
+                } catch (e: Exception) {
+                    Log.e("PackManagement", "Failed to create pack", e)
+
+                    null
+                }
+            }
+
+            if (pack == null) {
+                StaticStore.showShortMessage(this@PackManagement, R.string.editor_pack_create_fail)
+
+                return@launch
+            }
+
+            needReload = true
+
+            list.adapter = PackManagementAdapter(this@PackManagement, ArrayList(UserProfile.getUserPacks()))
+
+            StaticStore.showShortMessage(this@PackManagement, getString(R.string.editor_pack_created).replace("_", pack.sid))
         }
     }
 
