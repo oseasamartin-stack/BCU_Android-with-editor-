@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the mobile editor (added in this fork) -->
+<resources>
+    <string name="editor_pack_import">Import pack (.bcuzip)</string>
+    <string name="editor_pack_create">Create new pack</string>
+    <string name="editor_pack_name">Pack name</string>
+    <string name="editor_pack_author">Author (optional)</string>
+    <string name="editor_create">Create</string>
+    <string name="editor_pack_created">Created pack _</string>
+    <string name="editor_pack_create_fail">Failed to create pack</string>
+    <string name="editor_pack_workspace">Editable pack (workspace)</string>
+</resources>
