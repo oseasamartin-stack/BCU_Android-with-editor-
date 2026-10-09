@@ -1,7 +1,11 @@
 package com.mandarin.bcu
 
 import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
@@ -12,12 +16,22 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import common.system.files.VFile
+import common.system.VImg
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import com.mandarin.bcu.androidutil.StaticStore
 import com.mandarin.bcu.androidutil.io.AContext
 import com.mandarin.bcu.androidutil.io.DefineItf
@@ -61,6 +75,19 @@ class EnemyEditor : AppCompatActivity() {
     private val names: MultiLangData get() = form?.names ?: enemy.names
 
     private lateinit var ce: CustomEntity
+
+    // [Editor] Sprite / icon replacement
+    private var pendingImage: String? = null
+    private val imageViews = HashMap<String, ImageView>()
+    private val sizeTexts = HashMap<String, TextView>()
+
+    private val imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val target = pendingImage
+        pendingImage = null
+
+        if (uri != null && target != null)
+            replaceImage(target, uri)
+    }
 
     private var changed = false
     private var textColor = 0
@@ -260,6 +287,7 @@ class EnemyEditor : AppCompatActivity() {
         }
         root.addView(addAtk)
 
+        buildSprites(root)
         buildTraits(root)
         buildAbilities(root)
 
@@ -400,6 +428,178 @@ class EnemyEditor : AppCompatActivity() {
             }
             .setNegativeButton(R.string.main_file_cancel, null)
             .show()
+    }
+
+    // ---------------- Sprite & icons ----------------
+
+    /** The animation this enemy / form uses, if it belongs to this pack (only those can be changed). */
+    private fun ownAnim(): AnimCE? {
+        val a = (form?.anim ?: enemyOrNull?.anim) as? AnimCE ?: return null
+        val packId = form?.unit?.id?.pack ?: enemyOrNull?.id?.pack ?: return null
+        return if (a.id.pack == packId) a else null
+    }
+
+    private fun animFile(name: String): File? {
+        val a = ownAnim() ?: return null
+        return File(CommonStatic.ctx.getWorkspaceFile(a.id.getPath()), name)
+    }
+
+    private fun imageSize(f: File): Pair<Int, Int> {
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(f.absolutePath, o)
+        return Pair(o.outWidth, o.outHeight)
+    }
+
+    private fun buildSprites(root: LinearLayout) {
+        if (ownAnim() == null)
+            return
+
+        val group = collapsibleTop(root, R.string.editor_section_sprites)
+
+        val note = TextView(this)
+        note.text = getString(R.string.editor_sprites_note)
+        note.setTextColor(textColor)
+        note.alpha = 0.7f
+        group.addView(note)
+
+        val items = ArrayList<Pair<String, Int>>()
+        items.add(Pair(Source.SourceAnimLoader.SP, R.string.editor_img_sprite))
+        items.add(Pair(Source.SourceAnimLoader.EDI, R.string.editor_img_edi))
+        if (isUnit) items.add(Pair(Source.SourceAnimLoader.UNI, R.string.editor_img_uni))
+
+        for ((name, label) in items) {
+            val f = animFile(name) ?: continue
+
+            if (!f.exists())
+                continue
+
+            val title = TextView(this)
+            title.text = getString(label)
+            title.setTypeface(null, Typeface.BOLD)
+            title.setTextColor(textColor)
+            title.setPadding(0, dp(12), 0, dp(4))
+            group.addView(title)
+
+            val iv = ImageView(this)
+            iv.adjustViewBounds = true
+            iv.maxHeight = dp(140)
+            iv.setBackgroundResource(R.drawable.cell_shape)
+            group.addView(iv, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            imageViews[name] = iv
+
+            val size = TextView(this)
+            size.setTextColor(textColor)
+            size.alpha = 0.7f
+            group.addView(size)
+            sizeTexts[name] = size
+
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+
+            val share = Button(this)
+            share.text = getString(R.string.editor_img_share)
+            share.isAllCaps = false
+            share.setOnClickListener { shareImage(name) }
+
+            val replace = Button(this)
+            replace.text = getString(R.string.editor_img_replace)
+            replace.isAllCaps = false
+            replace.setOnClickListener {
+                pendingImage = name
+                imagePicker.launch("image/*")
+            }
+
+            row.addView(share, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(replace, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            group.addView(row)
+
+            refreshImage(name)
+        }
+    }
+
+    private fun refreshImage(name: String) {
+        val f = animFile(name) ?: return
+
+        imageViews[name]?.setImageBitmap(if (f.exists()) BitmapFactory.decodeFile(f.absolutePath) else null)
+
+        val (w, h) = imageSize(f)
+        sizeTexts[name]?.text = getString(R.string.editor_img_size).replace("_", "$w × $h")
+    }
+
+    private fun shareImage(name: String) {
+        val f = animFile(name) ?: return
+
+        try {
+            val uri = FileProvider.getUriForFile(this, packageName + ".provider", f)
+            val intent = Intent(Intent.ACTION_SEND)
+            intent.type = "image/png"
+            intent.putExtra(Intent.EXTRA_STREAM, uri)
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(Intent.createChooser(intent, getString(R.string.editor_img_share)))
+        } catch (e: Exception) {
+            Log.e("EnemyEditor", "Failed to share image", e)
+            StaticStore.showShortMessage(this, R.string.editor_import_fail)
+        }
+    }
+
+    /** Swap in a new image of exactly the same size, then make the animation use it. */
+    private fun replaceImage(name: String, uri: Uri) {
+        val f = animFile(name) ?: return
+        val anim = ownAnim() ?: return
+        val (w, h) = imageSize(f)
+
+        lifecycleScope.launch {
+            // null = success, otherwise a message to show
+            val error: Int? = withContext(Dispatchers.IO) {
+                try {
+                    val bmp = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+
+                    when {
+                        bmp == null -> R.string.editor_import_not_image
+                        bmp.width != w || bmp.height != h -> R.string.editor_img_wrong_size
+                        else -> {
+                            f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                            null
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("EnemyEditor", "Failed to replace image", e)
+                    R.string.editor_import_fail
+                }
+            }
+
+            if (error != null) {
+                StaticStore.showShortMessage(this@EnemyEditor, error)
+                return@launch
+            }
+
+            // Point the animation at the new file
+            try {
+                when (name) {
+                    Source.SourceAnimLoader.SP -> anim.reloImg()
+                    Source.SourceAnimLoader.EDI -> anim.setEdi(VImg(VFile.getFile(f)))
+                    Source.SourceAnimLoader.UNI -> anim.setUni(VImg(VFile.getFile(f)))
+                }
+            } catch (e: Exception) {
+                Log.e("EnemyEditor", "Failed to reload image", e)
+            }
+
+            PackManagement.needReload = true
+
+            refreshImage(name)
+            StaticStore.showShortMessage(this@EnemyEditor, R.string.editor_img_replaced)
+        }
+    }
+
+    /** Collapsible section at the top level of the screen (open by default). */
+    private fun collapsibleTop(root: LinearLayout, title: Int): LinearLayout {
+        header(root, title)
+
+        val body = LinearLayout(this)
+        body.orientation = LinearLayout.VERTICAL
+        root.addView(body)
+
+        return body
     }
 
     private fun header(root: LinearLayout, res: Int) {
