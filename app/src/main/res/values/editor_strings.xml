@@ -236,4 +236,99 @@
     <string name="editor_need_form">A unit needs at least one form</string>
     <string name="editor_copying_form">Copying form…</string>
     <string name="editor_form_added">Form added</string>
+    <string name="editor_group_talents">Talents</string>
+    <string name="editor_talents_note">Each value grows from its level 1 amount to its max level amount. Up to 8 talents.</string>
+    <string name="editor_add_talent">＋ Add talent</string>
+    <string name="editor_remove_talent">Remove this talent</string>
+    <string name="editor_max_talents">A form can have at most 8 talents</string>
+    <string name="editor_talent_n">Talent _:</string>
+    <string name="editor_talent_maxlv">Max level</string>
+    <string name="editor_talent_at_lv1">_ at level 1</string>
+    <string name="editor_talent_at_max">_ at max level</string>
+    <string name="editor_talent_super">Super talent (needs a higher unit level)</string>
+    <string name="editor_tp_prob">Chance (%)</string>
+    <string name="editor_tp_time">Duration (frames)</string>
+    <string name="editor_tp_mult">Amount (%)</string>
+    <string name="editor_tp_lv">Level</string>
+    <string name="editor_tp_dis0">Range start</string>
+    <string name="editor_tp_dis1">Range end</string>
+    <string name="editor_tp_dis">Distance</string>
+    <string name="editor_tp_health">HP threshold (%)</string>
+    <string name="editor_tp_value">Value</string>
+    <string name="editor_tp_cost">Cost reduction</string>
+    <string name="editor_tp_cd">Cooldown reduction (frames)</string>
+    <string name="editor_tp_speed">Speed increase</string>
+    <string name="editor_tp_hb">Extra knockbacks</string>
+    <string name="editor_tp_atk">Attack increase (%)</string>
+    <string name="editor_tp_hp">HP increase (%)</string>
+    <string name="editor_tp_tba">Attack interval reduction (%)</string>
+    <string-array name="editor_talent_names">
+        <item>—</item>
+        <item>Weaken</item>
+        <item>Freeze</item>
+        <item>Slow</item>
+        <item>Attacks only</item>
+        <item>Strong against</item>
+        <item>Resistant</item>
+        <item>Massive damage</item>
+        <item>Knockback</item>
+        <item>Warp</item>
+        <item>Strengthen</item>
+        <item>Survive lethal strike</item>
+        <item>Base destroyer</item>
+        <item>Critical hit</item>
+        <item>Zombie killer</item>
+        <item>Barrier breaker</item>
+        <item>Extra money</item>
+        <item>Wave attack</item>
+        <item>Resist weaken</item>
+        <item>Resist freeze</item>
+        <item>Resist slow</item>
+        <item>Resist knockback</item>
+        <item>Resist waves</item>
+        <item>Wave shield</item>
+        <item>Resist warp</item>
+        <item>Cost down</item>
+        <item>Cooldown down</item>
+        <item>Speed up</item>
+        <item>Extra knockbacks</item>
+        <item>Immune to curse</item>
+        <item>Resist curse</item>
+        <item>Attack up</item>
+        <item>HP up</item>
+        <item>Target Red</item>
+        <item>Target Floating</item>
+        <item>Target Black</item>
+        <item>Target Metal</item>
+        <item>Target Angel</item>
+        <item>Target Alien</item>
+        <item>Target Zombie</item>
+        <item>Target Relic</item>
+        <item>Target White</item>
+        <item>Target Witch</item>
+        <item>Target Eva</item>
+        <item>Immune to weaken</item>
+        <item>Immune to freeze</item>
+        <item>Immune to slow</item>
+        <item>Immune to knockback</item>
+        <item>Immune to waves</item>
+        <item>Immune to warp</item>
+        <item>Savage blow</item>
+        <item>Dodge attacks</item>
+        <item>Resist toxic</item>
+        <item>Immune to toxic</item>
+        <item>Resist surge</item>
+        <item>Immune to surge</item>
+        <item>Surge attack</item>
+        <item>Target Aku</item>
+        <item>Shield piercing</item>
+        <item>Colossus slayer</item>
+        <item>Curse</item>
+        <item>Faster attacks</item>
+        <item>Mini-wave</item>
+        <item>Behemoth slayer</item>
+        <item>Behemoth dodge</item>
+        <item>Mini-surge</item>
+        <item>Sage slayer</item>
+    </string-array>
 </resources>
