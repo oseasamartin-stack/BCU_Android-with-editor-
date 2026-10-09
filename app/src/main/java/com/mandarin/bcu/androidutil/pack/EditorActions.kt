@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
+import android.widget.Spinner
 import android.widget.ImageView
 import android.widget.TextView
 import android.text.Editable
@@ -23,6 +24,7 @@ import com.mandarin.bcu.StageEditor
 import com.mandarin.bcu.R
 import com.mandarin.bcu.androidutil.StaticStore
 import common.battle.data.CustomEnemy
+import common.battle.data.CustomUnit
 import common.CommonStatic
 import common.pack.Identifier
 import common.pack.PackData
@@ -39,6 +41,8 @@ import common.util.stage.Stage
 import common.util.stage.StageMap
 import common.util.unit.AbEnemy
 import common.util.unit.Enemy
+import common.util.unit.Form
+import common.util.unit.Unit as BCUnit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -556,6 +560,257 @@ object EditorActions {
         pickFromList(ac, R.string.editor_stage_castle, labels, { i -> items[i]?.img?.img?.bimg() as? Bitmap }) { i ->
             onPick(items[i]?.id)
         }
+    }
+
+    // ---------- Units ----------
+
+    private fun formName(f: Form): String {
+        return try { MultiLangCont.get(f) ?: f.names.toString() } catch (_: Exception) { "" }
+    }
+
+    private fun unitLabel(u: BCUnit): String {
+        val first = u.forms.firstOrNull()
+        val name = if (first == null) "" else formName(first)
+        val num = Data.trio(u.id.id)
+
+        return if (u.id.pack == Identifier.DEF) "$num - $name" else "${StaticStore.getPackName(u.id.pack)} - $num - $name"
+    }
+
+    /** List the pack's units, with an option to add a copy of a built-in cat. */
+    fun showUnits(ac: Activity, pack: PackData.UserPack) {
+        val units = pack.units.list.filterNotNull()
+
+        val labels = ArrayList<CharSequence>()
+        labels.add(ac.getString(R.string.editor_add_unit))
+        units.forEach { labels.add(unitLabel(it)) }
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_edit_units)
+            .setItems(labels.toTypedArray()) { _, which ->
+                if (which == 0)
+                    pickBCUnit(ac) { src -> addUnitCopy(ac, pack, src) }
+                else
+                    showUnitOptions(ac, pack, units[which - 1])
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun pickBCUnit(ac: Activity, onPick: (BCUnit) -> Unit) {
+        val all = UserProfile.getBCData().units.list.filterNotNull().filter { it.forms.isNotEmpty() }
+        val labels = listOf(ac.getString(R.string.main_file_cancel)) + all.map { unitLabel(it) }
+
+        pickFromList(ac, R.string.editor_add_unit, labels, { i -> all[i - 1].forms[0].anim.edi?.img?.bimg() as? Bitmap }) { i ->
+            if (i > 0)
+                onPick(all[i - 1])
+        }
+    }
+
+    private fun showUnitOptions(ac: Activity, pack: PackData.UserPack, u: BCUnit) {
+        val labels = ArrayList<CharSequence>()
+
+        for (f in u.forms)
+            labels.add(ac.getString(R.string.editor_edit_form).replace("_", "${f.fid + 1}: ${formName(f)}"))
+
+        labels.add(ac.getString(R.string.editor_unit_settings))
+        labels.add(ac.getString(R.string.editor_delete_unit))
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(unitLabel(u))
+            .setItems(labels.toTypedArray()) { _, which ->
+                when {
+                    which < u.forms.size -> {
+                        val intent = Intent(ac, EnemyEditor::class.java)
+                        intent.putExtra(EnemyEditor.EXTRA_PACK, pack.sid)
+                        intent.putExtra(EnemyEditor.EXTRA_UNIT, u.id.id)
+                        intent.putExtra(EnemyEditor.EXTRA_FORM, which)
+                        ac.startActivity(intent)
+                    }
+                    which == u.forms.size -> showUnitSettings(ac, u)
+                    else -> confirm(ac, R.string.editor_delete_unit_title, R.string.editor_delete_unit_msg) {
+                        deleteUnit(ac, pack, u)
+                    }
+                }
+            }
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    /** Rarity and level caps, which belong to the unit rather than a form. */
+    private fun showUnitSettings(ac: Activity, u: BCUnit) {
+        val pad = (16 * ac.resources.displayMetrics.density).toInt()
+
+        val layout = LinearLayout(ac)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.setPadding(pad, pad / 2, pad, 0)
+
+        fun label(res: Int) {
+            val t = TextView(ac)
+            t.text = ac.getString(res)
+            t.setPadding(0, pad / 2, 0, 0)
+            layout.addView(t)
+        }
+
+        label(R.string.editor_rarity)
+
+        val rarities = listOf(R.string.editor_rar_normal_short, R.string.editor_rar_special_short, R.string.editor_rar_rare_short,
+            R.string.editor_rar_super_short, R.string.editor_rar_uber_short, R.string.editor_rar_legend_short).map { ac.getString(it) }
+
+        val spinner = Spinner(ac)
+        spinner.adapter = ArrayAdapter(ac, android.R.layout.simple_spinner_dropdown_item, rarities)
+        spinner.setSelection(u.rarity.coerceIn(0, rarities.size - 1))
+        layout.addView(spinner)
+
+        label(R.string.editor_max_lv)
+        val maxLv = EditText(ac)
+        maxLv.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        maxLv.setText(u.max.toString())
+        layout.addView(maxLv)
+
+        label(R.string.editor_max_plus)
+        val maxPlus = EditText(ac)
+        maxPlus.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        maxPlus.setText(u.maxp.toString())
+        layout.addView(maxPlus)
+
+        val dialog = AlertDialog.Builder(ac)
+            .setTitle(R.string.editor_unit_settings)
+            .setView(layout)
+            .setPositiveButton(R.string.editor_save, null)
+            .setNegativeButton(R.string.main_file_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            // Validate before closing
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val mx = maxLv.text.toString().trim().toIntOrNull()
+                val mp = maxPlus.text.toString().trim().toIntOrNull()
+
+                if (mx == null || mx < 1) {
+                    maxLv.error = ac.getString(R.string.editor_invalid_number).replace("_", "1")
+                    return@setOnClickListener
+                }
+
+                if (mp == null || mp < 0) {
+                    maxPlus.error = ac.getString(R.string.editor_invalid_number).replace("_", "0")
+                    return@setOnClickListener
+                }
+
+                u.rarity = spinner.selectedItemPosition
+                u.max = mx
+                u.maxp = mp
+
+                if (save(ac))
+                    StaticStore.showShortMessage(ac, R.string.editor_saved)
+
+                dialog.dismiss()
+            }
+        }
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            dialog.show()
+        }
+    }
+
+    private fun addUnitCopy(ac: Activity, pack: PackData.UserPack, src: BCUnit) {
+        val progress = AlertDialog.Builder(ac)
+            .setMessage(R.string.editor_copying_unit)
+            .setCancelable(false)
+            .create()
+
+        if (!ac.isDestroyed && !ac.isFinishing) {
+            progress.show()
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val result = try {
+                copyUnit(pack, src)
+            } catch (e: Exception) {
+                Log.e("EditorActions", "Failed to copy unit", e)
+                null
+            }
+
+            ac.runOnUiThread {
+                if (progress.isShowing)
+                    progress.dismiss()
+
+                if (result == null) {
+                    StaticStore.showShortMessage(ac, R.string.editor_add_unit_fail)
+                } else {
+                    PackManagement.needReload = true
+                    StaticStore.showShortMessage(ac, ac.getString(R.string.editor_add_enemy_done).replace("_", unitLabel(result)))
+                }
+            }
+        }
+    }
+
+    /** Copy every form of a built-in cat (animation + stats + talents) into the pack. */
+    private fun copyUnit(pack: PackData.UserPack, src: BCUnit): BCUnit {
+        val id = Identifier<BCUnit>(pack.sid, BCUnit::class.java, pack.units.nextInd())
+        val u = BCUnit(id)
+
+        u.rarity = src.rarity
+        u.max = src.max
+        u.maxp = src.maxp
+        u.lv = src.lv
+        u.lv?.units?.add(u)
+
+        val forms = ArrayList<Form>()
+
+        for (i in src.forms.indices) {
+            val sf = src.forms[i]
+
+            sf.anim.check()
+
+            val rl = Source.ResourceLocation(pack.sid, "unit_" + Data.trio(src.id.id) + "_" + i, Source.BasePath.ANIM)
+            Source.Workspace.validate(rl)
+
+            val anim = AnimCE(rl, sf.anim)
+
+            val cu = CustomUnit()
+            cu.importData(sf.du)
+
+            val name = formName(sf)
+
+            forms.add(Form(u, i, if (name.isBlank()) "Form ${i + 1}" else name, anim, cu))
+        }
+
+        u.forms = forms.toTypedArray()
+
+        pack.units.add(u)
+
+        Source.Workspace.saveWorkspace()
+
+        return u
+    }
+
+    private fun deleteUnit(ac: Activity, pack: PackData.UserPack, u: BCUnit) {
+        pack.units.remove(u)
+        u.lv?.units?.remove(u)
+
+        // Remove its animation folders
+        for (f in u.forms) {
+            val anim = f.anim as? AnimCE ?: continue
+
+            if (anim.id.pack == pack.sid) {
+                try {
+                    CommonStatic.ctx.getWorkspaceFile(anim.id.getPath()).deleteRecursively()
+                } catch (e: Exception) {
+                    Log.e("EditorActions", "Failed to delete unit animation", e)
+                }
+            }
+        }
+
+        if (save(ac))
+            StaticStore.showShortMessage(ac, R.string.editor_deleted)
     }
 
     private fun openStage(ac: Activity, pack: PackData.UserPack, sm: StageMap, st: Stage) {
