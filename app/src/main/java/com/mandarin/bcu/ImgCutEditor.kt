@@ -403,9 +403,7 @@ class ImgCutEditor : AppCompatActivity() {
 
         private val handleSize get() = dp(22).toFloat()
 
-        private enum class Mode { NONE, MOVE, RESIZE, PAN }
-
-        private var mode = Mode.NONE
+        private var mode = CutMode.NONE
         private var lastX = 0f
         private var lastY = 0f
 
@@ -474,7 +472,7 @@ class ImgCutEditor : AppCompatActivity() {
             scaler.onTouchEvent(e)
 
             if (e.pointerCount > 1) {
-                mode = Mode.NONE
+                mode = CutMode.NONE
                 return true
             }
 
@@ -489,8 +487,8 @@ class ImgCutEditor : AppCompatActivity() {
                     val h = handleSize
 
                     mode = when {
-                        e.x in (s.right - h)..(s.right + h) && e.y in (s.bottom - h)..(s.bottom + h) -> Mode.RESIZE
-                        s.contains(e.x, e.y) -> Mode.MOVE
+                        e.x in (s.right - h)..(s.right + h) && e.y in (s.bottom - h)..(s.bottom + h) -> CutMode.RESIZE
+                        s.contains(e.x, e.y) -> CutMode.MOVE
                         else -> {
                             // Tap on another part selects it (smallest one wins when they overlap)
                             val hit = (0 until cut.n).filter { screenRect(it).contains(e.x, e.y) }
@@ -498,9 +496,9 @@ class ImgCutEditor : AppCompatActivity() {
 
                             if (hit != null) {
                                 select(hit)
-                                Mode.MOVE
+                                CutMode.MOVE
                             } else {
-                                Mode.PAN
+                                CutMode.PAN
                             }
                         }
                     }
@@ -514,23 +512,23 @@ class ImgCutEditor : AppCompatActivity() {
                     val c = cut.cuts[selected]
 
                     when (mode) {
-                        Mode.MOVE -> {
+                        CutMode.MOVE -> {
                             c[0] = maxOf(0, startRect[0] + Math.round(dx))
                             c[1] = maxOf(0, startRect[1] + Math.round(dy))
                             changed = true
                             rectToFields()
                         }
-                        Mode.RESIZE -> {
+                        CutMode.RESIZE -> {
                             c[2] = maxOf(1, startRect[2] + Math.round(dx))
                             c[3] = maxOf(1, startRect[3] + Math.round(dy))
                             changed = true
                             rectToFields()
                         }
-                        Mode.PAN -> {
+                        CutMode.PAN -> {
                             offX += e.x - lastX
                             offY += e.y - lastY
                         }
-                        Mode.NONE -> {}
+                        CutMode.NONE -> {}
                     }
 
                     lastX = e.x
@@ -538,10 +536,13 @@ class ImgCutEditor : AppCompatActivity() {
                     invalidate()
                 }
 
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> mode = Mode.NONE
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> mode = CutMode.NONE
             }
 
             return true
         }
     }
 }
+
+/** What a one-finger drag is doing in the image cut editor (enums can't live inside inner classes). */
+private enum class CutMode { NONE, MOVE, RESIZE, PAN }
