@@ -434,4 +434,41 @@
     <string name="editor_mm_has_children">Other pieces are attached to the last piece. Re-attach them first.</string>
     <string name="editor_mm_in_anims">The last piece is moved by _ animation track(s), so it can\'t be removed yet</string>
     <string name="editor_mm_discard_msg">Your changes to the model haven\'t been saved.</string>
+    <string name="editor_an_open">🎬 Edit animations (moves)</string>
+    <string name="editor_an_none">This character has no animations</string>
+    <string name="editor_an_move">Animation</string>
+    <string name="editor_an_track">Track (which piece, and what it changes)</string>
+    <string name="editor_an_loop">Loop count (-1 = forever, 1 = play once)</string>
+    <string name="editor_an_keys">Keyframes</string>
+    <string name="editor_an_keys_note">The track reaches each value at that frame (30 frames = 1 second). Easing controls the motion towards the next keyframe. The parameter is used by Exponential and Sine easing.</string>
+    <string name="editor_an_no_tracks">This animation has no tracks yet</string>
+    <string name="editor_an_frame">Frame</string>
+    <string name="editor_an_value">Value</string>
+    <string name="editor_an_param">Parameter</string>
+    <string name="editor_an_jump">Show this frame</string>
+    <string name="editor_an_frame_of">_</string>
+    <string name="editor_an_discard_msg">Your changes to the animations haven\'t been saved.</string>
+    <string name="editor_an_m_parent">Parent</string>
+    <string name="editor_an_m_id">Unit ID</string>
+    <string name="editor_an_m_image">Image part</string>
+    <string name="editor_an_m_layer">Layer</string>
+    <string name="editor_an_m_x">X</string>
+    <string name="editor_an_m_y">Y</string>
+    <string name="editor_an_m_pivx">Pivot X</string>
+    <string name="editor_an_m_pivy">Pivot Y</string>
+    <string name="editor_an_m_scale">Scale</string>
+    <string name="editor_an_m_scalex">Scale X</string>
+    <string name="editor_an_m_scaley">Scale Y</string>
+    <string name="editor_an_m_angle">Rotation</string>
+    <string name="editor_an_m_opacity">Opacity</string>
+    <string name="editor_an_m_hflip">Flip horizontal</string>
+    <string name="editor_an_m_vflip">Flip vertical</string>
+    <string name="editor_an_m_other">Type _</string>
+    <string-array name="editor_an_easings">
+        <item>Linear</item>
+        <item>Instant (jump)</item>
+        <item>Exponential</item>
+        <item>Smooth</item>
+        <item>Sine</item>
+    </string-array>
 </resources>
