@@ -400,4 +400,14 @@
     <string name="editor_img_size">Size: _ pixels</string>
     <string name="editor_img_wrong_size">Wrong size. The new image must be exactly the same size as the old one.</string>
     <string name="editor_img_replaced">Image replaced</string>
+    <string name="editor_ic_open">✂ Edit part areas (image cut)</string>
+    <string name="editor_ic_help">Tap a part to select it. Drag it to move, drag the red corner to resize. Drag empty space to pan, pinch to zoom.</string>
+    <string name="editor_ic_w">Width</string>
+    <string name="editor_ic_h">Height</string>
+    <string name="editor_ic_part">Part _</string>
+    <string name="editor_ic_add">＋ Add part</string>
+    <string name="editor_ic_remove">➖ Remove last part</string>
+    <string name="editor_ic_need_one">There must be at least one part</string>
+    <string name="editor_ic_in_use">The last part is used by _ model piece(s), so it can\'t be removed yet</string>
+    <string name="editor_ic_discard_msg">Your changes to the part areas haven\'t been saved.</string>
 </resources>
