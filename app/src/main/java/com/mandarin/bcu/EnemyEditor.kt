@@ -473,6 +473,16 @@ class EnemyEditor : AppCompatActivity() {
         }
         group.addView(icButton)
 
+        val mmButton = Button(this)
+        mmButton.text = getString(R.string.editor_mm_open)
+        mmButton.isAllCaps = false
+        mmButton.setOnClickListener {
+            val i = Intent(this, ModelEditor::class.java)
+            i.putExtras(intent)
+            startActivity(i)
+        }
+        group.addView(mmButton)
+
         val items = ArrayList<Pair<String, Int>>()
         items.add(Pair(Source.SourceAnimLoader.SP, R.string.editor_img_sprite))
         items.add(Pair(Source.SourceAnimLoader.EDI, R.string.editor_img_edi))
