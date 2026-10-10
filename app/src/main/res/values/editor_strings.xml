@@ -410,4 +410,28 @@
     <string name="editor_ic_need_one">There must be at least one part</string>
     <string name="editor_ic_in_use">The last part is used by _ model piece(s), so it can\'t be removed yet</string>
     <string name="editor_ic_discard_msg">Your changes to the part areas haven\'t been saved.</string>
+    <string name="editor_mm_open">🦴 Edit model (how parts fit together)</string>
+    <string name="editor_mm_help">Pick a piece below. Drag on the preview with one finger to move it; two fingers pan and zoom. The red lines are the ground and the centre.</string>
+    <string name="editor_mm_highlight">Highlight the selected piece</string>
+    <string name="editor_mm_piece">Piece _</string>
+    <string name="editor_mm_parent">Attached to</string>
+    <string name="editor_mm_noparent">Nothing (root)</string>
+    <string name="editor_mm_image">Image part</string>
+    <string name="editor_mm_x">X</string>
+    <string name="editor_mm_y">Y</string>
+    <string name="editor_mm_pivx">Pivot X</string>
+    <string name="editor_mm_pivy">Pivot Y</string>
+    <string name="editor_mm_scalex">Scale X</string>
+    <string name="editor_mm_scaley">Scale Y</string>
+    <string name="editor_mm_angle">Rotation</string>
+    <string name="editor_mm_opacity">Opacity</string>
+    <string name="editor_mm_layer">Layer (higher = in front)</string>
+    <string name="editor_mm_glow">Glow (0 = off)</string>
+    <string name="editor_mm_units">Scale and opacity: 1000 = 100%. Rotation: 3600 = a full turn. A negative scale flips the piece.</string>
+    <string name="editor_mm_add">＋ Add piece</string>
+    <string name="editor_mm_remove">➖ Remove last piece</string>
+    <string name="editor_mm_need_one">There must be at least one piece</string>
+    <string name="editor_mm_has_children">Other pieces are attached to the last piece. Re-attach them first.</string>
+    <string name="editor_mm_in_anims">The last piece is moved by _ animation track(s), so it can\'t be removed yet</string>
+    <string name="editor_mm_discard_msg">Your changes to the model haven\'t been saved.</string>
 </resources>
