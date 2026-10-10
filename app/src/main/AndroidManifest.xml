@@ -125,6 +125,7 @@
         <activity android:name=".StageEditor" />
         <activity android:name=".ImgCutEditor" />
         <activity android:name=".ModelEditor" />
+        <activity android:name=".AnimEditor" />
         <activity android:name=".EnemyList" />
         <activity
             android:name=".ConfigScreen"
