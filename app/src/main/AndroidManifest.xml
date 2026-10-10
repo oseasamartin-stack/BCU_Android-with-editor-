@@ -123,6 +123,7 @@
         <activity android:name=".EnemyInfo" />
         <activity android:name=".EnemyEditor" />
         <activity android:name=".StageEditor" />
+        <activity android:name=".ImgCutEditor" />
         <activity android:name=".EnemyList" />
         <activity
             android:name=".ConfigScreen"
