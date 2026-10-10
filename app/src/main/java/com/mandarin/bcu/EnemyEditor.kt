@@ -462,6 +462,17 @@ class EnemyEditor : AppCompatActivity() {
         note.alpha = 0.7f
         group.addView(note)
 
+        val icButton = Button(this)
+        icButton.text = getString(R.string.editor_ic_open)
+        icButton.isAllCaps = false
+        icButton.setOnClickListener {
+            // Same extras identify the same enemy / form
+            val i = Intent(this, ImgCutEditor::class.java)
+            i.putExtras(intent)
+            startActivity(i)
+        }
+        group.addView(icButton)
+
         val items = ArrayList<Pair<String, Int>>()
         items.add(Pair(Source.SourceAnimLoader.SP, R.string.editor_img_sprite))
         items.add(Pair(Source.SourceAnimLoader.EDI, R.string.editor_img_edi))
